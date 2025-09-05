@@ -8,7 +8,6 @@ prompt_generation:
   provider: "openai"        # openai | dummy
   model: "gpt-5"            # default model for base prompt, variants, and alt text
   temperature: 0.8
-  max_tokens: 400
   # system/style rules enforced at runtime (no real people/logos/NSFW, negative prompts, style hints)
 
 generation:
