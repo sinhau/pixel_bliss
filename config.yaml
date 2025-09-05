@@ -99,6 +99,8 @@ image_generation:
   model_fal: ["fal-ai/gemini-25-flash-image", "fal-ai/bytedance/seedream/v3/text-to-image", "fal-ai/imagen4/preview/ultra"]     # FAL AI models to use for image generation
   model_replicate: ["google/gemini-2.5-flash-image", "bytedance/seedream-3", "google/imagen-4-ultra"]   # Replicate models as fallback options
   retries_per_image: 2      # Number of retry attempts per image generation request before giving up
+  async_enabled: true       # Enable parallel processing of prompt variants (faster generation)
+  max_concurrency: null     # Optional limit on concurrent API requests (null = no limit, use integer to limit)
 
 ranking:
   # Image scoring weights for final ranking: final_score = w_brightness * brightness_norm + w_entropy * entropy_norm + w_aesthetic * aesthetic_score + w_local_quality * local_quality_score
