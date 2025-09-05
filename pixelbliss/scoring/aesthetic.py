@@ -28,28 +28,19 @@ def aesthetic(image_url: str, cfg: Config) -> float:
         else:
             raise Exception(f"Unsupported aesthetic score output format: {output}")
             
-        # Normalize score to [0,1] range
+        # Normalize score to [0,1] range using configured min/max
         score = float(score)
+        score_min = cfg.aesthetic_scoring.score_min
+        score_max = cfg.aesthetic_scoring.score_max
         
-        # Handle common score ranges from different aesthetic models
-        if score >= 0 and score <= 1:
-            # Already in [0,1] range
-            normalized_score = score
-        elif score >= 0 and score <= 10:
-            # Scale from [0,10] to [0,1]
-            normalized_score = score / 10.0
-        elif score >= 1 and score <= 5:
-            # Scale from [1,5] to [0,1]
-            normalized_score = (score - 1) / 4.0
-        elif score >= -1 and score <= 1:
-            # Scale from [-1,1] to [0,1]
-            normalized_score = (score + 1) / 2.0
+        # Linear normalization from [score_min, score_max] to [0, 1]
+        if score_max == score_min:
+            # Avoid division by zero
+            normalized_score = 0.5
         else:
-            # For any other range, use sigmoid-like normalization
-            # This maps any real number to [0,1] range
-            import math
-            normalized_score = 1 / (1 + math.exp(-score))
+            normalized_score = (score - score_min) / (score_max - score_min)
         
+        # Clamp to [0,1] range in case score is outside expected range
         return min(max(normalized_score, 0.0), 1.0)
         
     except Exception as e:

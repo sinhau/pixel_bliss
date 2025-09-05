@@ -38,6 +38,8 @@ class WallpaperVariant(BaseModel):
 class AestheticScoring(BaseModel):
     provider: str = "replicate"
     model: str = "laion/aesthetic-predictor:v2-14"
+    score_min: float = 0.0
+    score_max: float = 1.0
 
 class Alerts(BaseModel):
     enabled: bool = True
