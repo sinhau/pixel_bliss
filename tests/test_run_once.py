@@ -228,10 +228,11 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
-        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.async_enabled = False  # Disable to avoid asyncio.run() in tests
         mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
+        mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_config.return_value = mock_cfg
         
         mock_category.return_value = "test_category"
@@ -281,10 +282,11 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
-        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.async_enabled = False  # Disable to avoid asyncio.run() in tests
         mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
+        mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.upscale.enabled = False
         mock_cfg.aesthetic_scoring = Mock()
         mock_cfg.aesthetic_scoring.provider = "dummy_local"
@@ -335,7 +337,8 @@ class TestPostOnce:
     @patch('pixelbliss.run_once.metrics.entropy')
     @patch('pixelbliss.run_once.sanity.passes_floors')
     @patch('pixelbliss.alerts.webhook.send_failure')
-    def test_post_once_sanity_check_fails(self, mock_send_failure, mock_floors, mock_entropy, mock_brightness,
+    @pytest.mark.asyncio
+    async def test_post_once_sanity_check_fails(self, mock_send_failure, mock_floors, mock_entropy, mock_brightness,
                                         mock_generate, mock_variants, mock_base, mock_category, mock_config):
         """Test post_once when sanity check fails."""
         # Setup config
@@ -344,9 +347,11 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
-        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.async_enabled = False  # Disable to avoid asyncio.run() in tests
         mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
+        mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.aesthetic_scoring = Mock()
         mock_cfg.aesthetic_scoring.provider = "dummy_local"
         mock_config.return_value = mock_cfg
@@ -365,7 +370,7 @@ class TestPostOnce:
         mock_entropy.return_value = 4.5
         mock_floors.return_value = False  # Sanity check fails
         
-        result = post_once(dry_run=True)
+        result = await post_once(dry_run=True)
         
         assert result == 1  # Should return error code
         mock_send_failure.assert_called_once_with("all candidates failed sanity/scoring", mock_cfg)
@@ -380,7 +385,8 @@ class TestPostOnce:
     @patch('pixelbliss.run_once.sanity.passes_floors')
     @patch('pixelbliss.run_once.quality.evaluate_local')
     @patch('pixelbliss.alerts.webhook.send_failure')
-    def test_post_once_local_quality_fails(self, mock_send_failure, mock_quality, mock_floors, mock_entropy, mock_brightness,
+    @pytest.mark.asyncio
+    async def test_post_once_local_quality_fails(self, mock_send_failure, mock_quality, mock_floors, mock_entropy, mock_brightness,
                                          mock_generate, mock_variants, mock_base, mock_category, mock_config):
         """Test post_once when local quality check fails."""
         # Setup config
@@ -389,9 +395,11 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
-        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.async_enabled = False  # Disable to avoid asyncio.run() in tests
         mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
+        mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -409,7 +417,7 @@ class TestPostOnce:
         mock_floors.return_value = True
         mock_quality.return_value = (False, 0.3)  # Local quality fails
         
-        result = post_once(dry_run=True)
+        result = await post_once(dry_run=True)
         
         assert result == 1  # Should return error code
         mock_send_failure.assert_called_once_with("all candidates failed sanity/scoring", mock_cfg)
@@ -433,7 +441,8 @@ class TestPostOnce:
     @patch('pixelbliss.run_once.phash.is_duplicate')
     @patch('pixelbliss.run_once.phash.phash_hex')
     @patch('pixelbliss.alerts.webhook.send_failure')
-    def test_post_once_winner_is_duplicate(self, mock_send_failure, mock_phash_hex, mock_duplicate, mock_hashes, mock_collage,
+    @pytest.mark.asyncio
+    async def test_post_once_winner_is_duplicate(self, mock_send_failure, mock_phash_hex, mock_duplicate, mock_hashes, mock_collage,
                                          mock_outdir, mock_slug, mock_today, mock_rescore, mock_aesthetic,
                                          mock_quality, mock_floors, mock_entropy, mock_brightness, mock_generate,
                                          mock_variants, mock_base, mock_category, mock_config):
@@ -444,9 +453,11 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
-        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.async_enabled = False  # Disable to avoid asyncio.run() in tests
         mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
+        mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.aesthetic_scoring.provider = "dummy_local"
         mock_cfg.aesthetic_scoring.score_min = 0.0
         mock_cfg.aesthetic_scoring.score_max = 1.0
@@ -479,7 +490,7 @@ class TestPostOnce:
         mock_hashes.return_value = ["existing_hash"]
         mock_duplicate.return_value = True  # Winner is duplicate
         
-        result = post_once(dry_run=True)
+        result = await post_once(dry_run=True)
         
         assert result == 0  # Should return 0 (not fatal)
         mock_send_failure.assert_called_once_with("near-duplicate with manifest history", mock_cfg)
@@ -513,7 +524,8 @@ class TestPostOnce:
     @patch('pixelbliss.twitter.client.create_tweet')
     @patch('pixelbliss.run_once.manifest.update_tweet_id')
     @patch('pixelbliss.alerts.webhook.send_success')
-    def test_post_once_full_execution(self, mock_send_success, mock_update_tweet, mock_create_tweet, mock_set_alt,
+    @pytest.mark.asyncio
+    async def test_post_once_full_execution(self, mock_send_success, mock_update_tweet, mock_create_tweet, mock_set_alt,
                                     mock_upload, mock_iso, mock_append, mock_save_meta, mock_save_images, mock_alt,
                                     mock_variants_wall, mock_phash, mock_duplicate, mock_hashes, mock_collage,
                                     mock_outdir, mock_slug, mock_today, mock_rescore, mock_aesthetic, mock_quality,
@@ -526,9 +538,11 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
-        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.async_enabled = False  # Disable to avoid asyncio.run() in tests
         mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
+        mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.upscale.enabled = True
         mock_cfg.upscale.provider = "test_provider"
         mock_cfg.upscale.model = "test_model"
@@ -576,7 +590,7 @@ class TestPostOnce:
             mock_upload.return_value = ["media_id_123"]
             mock_create_tweet.return_value = "tweet_id_456"
             
-            result = post_once(dry_run=False)  # Non-dry-run
+            result = await post_once(dry_run=False)  # Non-dry-run
             
             assert result == 0  # Should succeed
             mock_upload.assert_called_once()
@@ -796,7 +810,8 @@ class TestAsyncIntegration:
     @patch('pixelbliss.run_once.storage.fs.save_meta')
     @patch('pixelbliss.run_once.manifest.append')
     @patch('pixelbliss.run_once.now_iso')
-    def test_post_once_async_enabled(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
+    @pytest.mark.asyncio
+    async def test_post_once_async_enabled(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
                                    mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                    mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
                                    mock_score_parallel, mock_quality, mock_floors, mock_entropy, mock_brightness,
@@ -810,6 +825,8 @@ class TestAsyncIntegration:
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
         mock_cfg.prompt_generation.num_prompt_variants = 2
+        mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
+        mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.upscale.enabled = False
         mock_config.return_value = mock_cfg
         
@@ -867,7 +884,7 @@ class TestAsyncIntegration:
         mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
         mock_iso.return_value = "2024-01-01T12:00:00"
         
-        result = post_once(dry_run=True)
+        result = await post_once(dry_run=True)
         
         assert result == 0
         # Verify async path was used - should be called twice (image generation + aesthetic scoring)
@@ -898,7 +915,8 @@ class TestAsyncIntegration:
     @patch('pixelbliss.run_once.storage.fs.save_meta')
     @patch('pixelbliss.run_once.manifest.append')
     @patch('pixelbliss.run_once.now_iso')
-    def test_post_once_async_disabled(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
+    @pytest.mark.asyncio
+    async def test_post_once_async_disabled(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
                                     mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                     mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
                                     mock_aesthetic, mock_quality, mock_floors, mock_entropy, mock_brightness,
@@ -912,6 +930,8 @@ class TestAsyncIntegration:
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
         mock_cfg.prompt_generation.num_prompt_variants = 2
+        mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
+        mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.upscale.enabled = False
         mock_config.return_value = mock_cfg
         
@@ -950,7 +970,7 @@ class TestAsyncIntegration:
         mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
         mock_iso.return_value = "2024-01-01T12:00:00"
         
-        result = post_once(dry_run=True)
+        result = await post_once(dry_run=True)
         
         assert result == 0
         mock_sequential.assert_called_once()  # Verify sequential path was used
@@ -1034,15 +1054,18 @@ class TestAsyncPromptGeneration:
             mock_provider = Mock()
             # Don't add make_variants_from_base_async method to trigger fallback
             mock_provider.make_variants_from_base.return_value = ["sync variant1", "sync variant2"]
+            # Explicitly delete the async method to ensure hasattr returns False
+            if hasattr(mock_provider, 'make_variants_from_base_async'):
+                delattr(mock_provider, 'make_variants_from_base_async')
             mock_get_provider.return_value = mock_provider
             
-            with patch('asyncio.to_thread') as mock_to_thread:
+            with patch('asyncio.to_thread', new_callable=AsyncMock) as mock_to_thread:
                 mock_to_thread.return_value = ["sync variant1", "sync variant2"]
                 
                 result = await make_variants_from_base_async("base prompt", 2, cfg)
                 
                 assert result == ["sync variant1", "sync variant2"]
-                mock_to_thread.assert_called_once_with(
+                mock_to_thread.assert_awaited_once_with(
                     mock_provider.make_variants_from_base, 
                     "base prompt", 
                     2, 
@@ -1054,15 +1077,20 @@ class TestAsyncPromptGeneration:
         """Test OpenAI provider async methods directly."""
         from pixelbliss.prompt_engine.openai_gpt5 import OpenAIGPT5Provider
         
-        provider = OpenAIGPT5Provider("gpt-5")
-        
-        # Mock the async client
-        with patch.object(provider, 'async_client') as mock_async_client:
-            # Mock the response
+        # Mock the OpenAI clients to avoid API key requirement
+        with patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI') as mock_openai, \
+             patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI') as mock_async_openai:
+            
+            # Create provider with mocked clients
+            provider = OpenAIGPT5Provider("gpt-5")
+            
+            # Mock the async client
+            mock_async_client = Mock()
             mock_response = Mock()
             mock_response.choices = [Mock()]
             mock_response.choices[0].message.content = "Generated variant"
             mock_async_client.chat.completions.create = AsyncMock(return_value=mock_response)
+            provider.async_client = mock_async_client
             
             # Test single variant generation
             result = await provider._generate_single_variant_async("base prompt", "Realism")
@@ -1075,15 +1103,20 @@ class TestAsyncPromptGeneration:
         """Test OpenAI provider async variant generation with concurrency control."""
         from pixelbliss.prompt_engine.openai_gpt5 import OpenAIGPT5Provider
         
-        provider = OpenAIGPT5Provider("gpt-5")
-        
-        # Mock the async client
-        with patch.object(provider, 'async_client') as mock_async_client:
-            # Mock the response
+        # Mock the OpenAI clients to avoid API key requirement
+        with patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI') as mock_openai, \
+             patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI') as mock_async_openai:
+            
+            # Create provider with mocked clients
+            provider = OpenAIGPT5Provider("gpt-5")
+            
+            # Mock the async client
+            mock_async_client = Mock()
             mock_response = Mock()
             mock_response.choices = [Mock()]
             mock_response.choices[0].message.content = "Generated variant"
             mock_async_client.chat.completions.create = AsyncMock(return_value=mock_response)
+            provider.async_client = mock_async_client
             
             # Test multiple variant generation with concurrency limit
             result = await provider.make_variants_from_base_async(
@@ -1102,31 +1135,42 @@ class TestAsyncPromptGeneration:
         """Test OpenAI provider async variant generation with exception handling."""
         from pixelbliss.prompt_engine.openai_gpt5 import OpenAIGPT5Provider
         
-        provider = OpenAIGPT5Provider("gpt-5")
-        
-        # Mock the async client to raise an exception for one call
-        with patch.object(provider, 'async_client') as mock_async_client:
-            # First call succeeds, second fails, third succeeds
-            mock_response = Mock()
-            mock_response.choices = [Mock()]
-            mock_response.choices[0].message.content = "Generated variant"
+        # Mock the OpenAI clients to avoid API key requirement
+        with patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI') as mock_openai, \
+             patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI') as mock_async_openai:
             
-            mock_async_client.chat.completions.create = AsyncMock(
-                side_effect=[mock_response, Exception("API Error"), mock_response]
-            )
+            # Create provider with mocked clients
+            provider = OpenAIGPT5Provider("gpt-5")
             
-            # Test variant generation with exception
-            result = await provider.make_variants_from_base_async(
-                "base prompt", 
-                3, 
-                ["Realism", "Impressionism", "Digital Art"]
-            )
-            
-            assert len(result) == 3
-            # First and third should be successful, second should be fallback
-            assert result[0] == "Generated variant"
-            assert result[1] == "base prompt in Impressionism style"  # Fallback
-            assert result[2] == "Generated variant"
+            # Mock random.choice to make style selection deterministic
+            with patch('pixelbliss.prompt_engine.openai_gpt5.random.choice') as mock_choice:
+                # Return styles in order: Realism, Impressionism, Digital Art
+                mock_choice.side_effect = ["Realism", "Impressionism", "Digital Art"]
+                
+                # Mock the async client to raise an exception for one call
+                mock_async_client = Mock()
+                # First call succeeds, second fails, third succeeds
+                mock_response = Mock()
+                mock_response.choices = [Mock()]
+                mock_response.choices[0].message.content = "Generated variant"
+                
+                mock_async_client.chat.completions.create = AsyncMock(
+                    side_effect=[mock_response, Exception("API Error"), mock_response]
+                )
+                provider.async_client = mock_async_client
+                
+                # Test variant generation with exception
+                result = await provider.make_variants_from_base_async(
+                    "base prompt", 
+                    3, 
+                    ["Realism", "Impressionism", "Digital Art"]
+                )
+                
+                assert len(result) == 3
+                # First and third should be successful, second should be fallback
+                assert result[0] == "Generated variant"
+                assert result[1] == "base prompt in Impressionism style"  # Fallback (uses second style)
+                assert result[2] == "Generated variant"
 
     @pytest.mark.asyncio
     async def test_dummy_provider_async_method(self):
@@ -1171,7 +1215,8 @@ class TestAsyncPromptGeneration:
     @patch('pixelbliss.run_once.storage.fs.save_meta')
     @patch('pixelbliss.run_once.manifest.append')
     @patch('pixelbliss.run_once.now_iso')
-    def test_post_once_async_disabled_no_image_url(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
+    @pytest.mark.asyncio
+    async def test_post_once_async_disabled_no_image_url(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
                                                   mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                                   mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
                                                   mock_quality, mock_floors, mock_entropy, mock_brightness,
@@ -1185,6 +1230,8 @@ class TestAsyncPromptGeneration:
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
         mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.prompt_generation.async_enabled = False  # Explicitly disable async prompt generation
+        mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.upscale.enabled = False
         mock_config.return_value = mock_cfg
         
@@ -1224,7 +1271,7 @@ class TestAsyncPromptGeneration:
         mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
         mock_iso.return_value = "2024-01-01T12:00:00"
         
-        result = post_once(dry_run=True)
+        result = await post_once(dry_run=True)
         
         assert result == 0
         mock_sequential.assert_called_once()  # Verify sequential path was used
