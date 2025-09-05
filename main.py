@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import asyncio
 import argparse
 from dotenv import load_dotenv
 from pixelbliss.run_once import post_once
@@ -31,10 +32,10 @@ def main():
 
     if args.command == 'post-once':
         logger.info("Starting PixelBliss post-once command")
-        sys.exit(post_once(dry_run=False, logger=logger, progress_logger=progress_logger))
+        sys.exit(asyncio.run(post_once(dry_run=False, logger=logger, progress_logger=progress_logger)))
     elif args.command == 'dry-run':
         logger.info("Starting PixelBliss dry-run command")
-        sys.exit(post_once(dry_run=True, logger=logger, progress_logger=progress_logger))
+        sys.exit(asyncio.run(post_once(dry_run=True, logger=logger, progress_logger=progress_logger)))
     elif args.command == 'repair-manifest':
         logger.warning("Repair manifest not implemented yet")
         sys.exit(0)

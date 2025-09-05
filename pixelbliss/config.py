@@ -8,6 +8,8 @@ class PromptGeneration(BaseModel):
     provider: str = "openai"
     model: str = "gpt-5"
     num_prompt_variants: int = 3
+    async_enabled: bool = True
+    max_concurrency: Optional[int] = None  # None means no limit, defaults to number of variants
 
 class ImageGeneration(BaseModel):
     provider_order: List[str] = ["fal", "replicate"]

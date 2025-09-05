@@ -4,15 +4,19 @@ from pixelbliss.prompt_engine.openai_gpt5 import OpenAIGPT5Provider
 
 
 class TestOpenAIGPT5Provider:
+    @patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI')
     @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
-    def test_init(self, mock_openai):
+    def test_init(self, mock_openai, mock_async_openai):
         provider = OpenAIGPT5Provider()
         mock_openai.assert_called_once()
+        mock_async_openai.assert_called_once()
         assert provider.model == "gpt-5"
         assert provider.client is not None
+        assert provider.async_client is not None
 
+    @patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI')
     @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
-    def test_make_base(self, mock_openai):
+    def test_make_base(self, mock_openai, mock_async_openai):
         mock_client = Mock()
         mock_openai.return_value = mock_client
         mock_response = Mock()
@@ -28,8 +32,9 @@ class TestOpenAIGPT5Provider:
         assert result == "Generated base prompt"
         mock_client.chat.completions.create.assert_called_once()
 
+    @patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI')
     @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
-    def test_make_variants_from_base(self, mock_openai):
+    def test_make_variants_from_base(self, mock_openai, mock_async_openai):
         mock_client = Mock()
         mock_openai.return_value = mock_client
         mock_response = Mock()
@@ -46,8 +51,9 @@ class TestOpenAIGPT5Provider:
         assert all(v == "Variant prompt" for v in variants)
         assert mock_client.chat.completions.create.call_count == 2
 
+    @patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI')
     @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
-    def test_make_alt_text(self, mock_openai):
+    def test_make_alt_text(self, mock_openai, mock_async_openai):
         mock_client = Mock()
         mock_openai.return_value = mock_client
         mock_response = Mock()

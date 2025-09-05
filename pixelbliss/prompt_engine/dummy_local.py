@@ -1,4 +1,5 @@
-from typing import List
+import asyncio
+from typing import List, Optional
 from .base import PromptProvider
 
 class DummyLocalProvider(PromptProvider):
@@ -46,3 +47,22 @@ class DummyLocalProvider(PromptProvider):
             str: Generic alt text for testing.
         """
         return "A stunning aesthetic image featuring vibrant colors and intricate details."
+
+    async def make_variants_from_base_async(self, base_prompt: str, k: int, art_styles: List[str] = None, max_concurrency: Optional[int] = None) -> List[str]:
+        """
+        Generate k simple variations of a base prompt asynchronously for testing.
+        
+        Args:
+            base_prompt: The original prompt to create variations from.
+            k: Number of variations to generate.
+            art_styles: List of art styles to randomly select from for each variant.
+            max_concurrency: Maximum number of concurrent operations (unused in dummy implementation).
+            
+        Returns:
+            List[str]: List of k simple prompt variations.
+        """
+        # Simulate async work with a small delay
+        await asyncio.sleep(0.1)
+        
+        # Use the synchronous method for actual generation
+        return self.make_variants_from_base(base_prompt, k, art_styles)

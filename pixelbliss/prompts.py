@@ -1,3 +1,4 @@
+import asyncio
 from .config import Config
 from .prompt_engine.openai_gpt5 import OpenAIGPT5Provider
 from .prompt_engine.dummy_local import DummyLocalProvider
@@ -68,3 +69,34 @@ def make_alt_text(base_prompt: str, variant_prompt: str, cfg: Config) -> str:
     """
     provider = get_provider(cfg)
     return provider.make_alt_text(base_prompt, variant_prompt)
+
+async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config) -> list[str]:
+    """
+    Generate k variations of a base prompt in parallel.
+    
+    Args:
+        base_prompt: The original prompt to create variations from.
+        k: Number of variations to generate.
+        cfg: Configuration object containing prompt generation settings.
+        
+    Returns:
+        list[str]: List of k prompt variations.
+    """
+    provider = get_provider(cfg)
+    
+    # Check if provider supports async generation
+    if hasattr(provider, 'make_variants_from_base_async'):
+        return await provider.make_variants_from_base_async(
+            base_prompt, 
+            k, 
+            cfg.art_styles, 
+            cfg.prompt_generation.max_concurrency
+        )
+    else:
+        # Fallback to synchronous generation
+        return await asyncio.to_thread(
+            provider.make_variants_from_base, 
+            base_prompt, 
+            k, 
+            cfg.art_styles
+        )

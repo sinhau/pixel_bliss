@@ -1,7 +1,8 @@
 import os
 import random
-from typing import List
-from openai import OpenAI
+import asyncio
+from typing import List, Optional
+from openai import OpenAI, AsyncOpenAI
 from .base import PromptProvider
 
 class OpenAIGPT5Provider(PromptProvider):
@@ -16,6 +17,7 @@ class OpenAIGPT5Provider(PromptProvider):
         """
         self.model = model
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def make_base(self, category: str) -> str:
         """
@@ -43,6 +45,102 @@ class OpenAIGPT5Provider(PromptProvider):
             ],
         )
         return response.choices[0].message.content.strip()
+
+    async def _generate_single_variant_async(self, base_prompt: str, art_style: str, semaphore: Optional[asyncio.Semaphore] = None) -> str:
+        """
+        Generate a single prompt variant asynchronously.
+        
+        Args:
+            base_prompt: The original prompt to create variations from.
+            art_style: The art style to emphasize in this variant.
+            semaphore: Optional semaphore to limit concurrent API calls.
+            
+        Returns:
+            str: Generated prompt variant.
+        """
+        system_prompt = (
+            "You are a creative AI that generates variations of image prompts. "
+            "Given a base prompt and an art style, create variations by incorporating the specified art style "
+            "while changing colors, compositions, or adding artistic elements. "
+            "EMPHASIZE the art style heavily in your prompt - it should be a dominant characteristic of the image. "
+            "Try to add some random thematic element that induces aesthetic and eudaimonic pleasure. "
+            "Keep them aesthetic and wallpaper-friendly. "
+            "Rules: No real people, no logos, no NSFW. Include negative prompts."
+        )
+        
+        user_prompt = (
+            f"Base prompt: {base_prompt}\n\n"
+            f"Art style to emphasize: {art_style}\n\n"
+            f"Generate one creative variation of this prompt that heavily emphasizes the {art_style} art style. "
+            f"Make sure the {art_style} style is a prominent and defining characteristic of the image."
+        )
+
+        if semaphore:
+            async with semaphore:
+                response = await self.async_client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                )
+        else:
+            response = await self.async_client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+            )
+        
+        return response.choices[0].message.content.strip()
+
+    async def make_variants_from_base_async(self, base_prompt: str, k: int, art_styles: List[str] = None, max_concurrency: Optional[int] = None) -> List[str]:
+        """
+        Generate k variations of a base prompt in parallel using OpenAI GPT-5.
+        
+        Args:
+            base_prompt: The original prompt to create variations from.
+            k: Number of variations to generate.
+            art_styles: List of art styles to randomly select from for each variant.
+            max_concurrency: Maximum number of concurrent API calls. None means no limit.
+            
+        Returns:
+            List[str]: List of k prompt variations with different styles and elements.
+        """
+        # Set up concurrency control
+        if max_concurrency is None:
+            max_concurrency = k
+        
+        semaphore = asyncio.Semaphore(max_concurrency) if max_concurrency > 0 else None
+        
+        # Pre-select art styles for each variant to ensure deterministic results
+        selected_styles = []
+        for _ in range(k):
+            selected_style = random.choice(art_styles) if art_styles else "artistic style"
+            selected_styles.append(selected_style)
+        
+        # Create tasks for all variants
+        tasks = [
+            asyncio.create_task(self._generate_single_variant_async(base_prompt, style, semaphore))
+            for style in selected_styles
+        ]
+        
+        # Execute all tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Handle results and exceptions
+        variants = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                # Log error but continue with other variants
+                # For now, we'll use a fallback variant
+                fallback_variant = f"{base_prompt} in {selected_styles[i]} style"
+                variants.append(fallback_variant)
+            else:
+                variants.append(result)
+        
+        return variants
 
     def make_variants_from_base(self, base_prompt: str, k: int, art_styles: List[str] = None) -> List[str]:
         """

@@ -313,7 +313,7 @@ def generate_images_sequential(variant_prompts: List[str], cfg: Config) -> List[
     
     return candidates
 
-def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = None, progress_logger: Optional[ProgressLogger] = None):
+async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = None, progress_logger: Optional[ProgressLogger] = None):
     """
     Execute the complete pipeline to generate, rank, and post a wallpaper image.
     
@@ -364,7 +364,14 @@ def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = None, pr
         base_prompt = prompts.make_base(category, cfg)
         logger.info(f"Base prompt generated: {base_prompt[:100]}...")
         
-        variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
+        logger.info(f"Starting prompt variant generation (async: {cfg.prompt_generation.async_enabled})")
+        if cfg.prompt_generation.async_enabled:
+            progress_logger.substep("Using parallel prompt generation")
+            variant_prompts = await prompts.make_variants_from_base_async(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
+        else:
+            progress_logger.substep("Using sequential prompt generation")
+            variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
+        
         logger.info(f"Generated {len(variant_prompts)} prompt variants")
         for i, vp in enumerate(variant_prompts, 1):
             logger.debug(f"Variant {i}: {vp[:80]}...")
