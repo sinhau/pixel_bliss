@@ -245,3 +245,115 @@ class TestPrompts:
         result = make_variants_from_base("base", 2, cfg)
         assert result == ["variant1", "variant2"]
         mock_provider.make_variants_from_base.assert_called_once_with("base", 2, ["style1"])
+
+    @patch('pixelbliss.prompts.get_provider')
+    @patch('pixelbliss.prompts.time.time')
+    def test_make_variants_from_base_without_progress_logger(self, mock_time, mock_get_provider):
+        # Setup mocks
+        mock_time.side_effect = [0.0, 2.0]  # start and end times
+        mock_provider = Mock()
+        mock_provider.make_variants_from_base.return_value = ["variant1", "variant2"]
+        mock_get_provider.return_value = mock_provider
+        
+        cfg = Mock()
+        cfg.prompt_generation.provider = "dummy"
+        cfg.prompt_generation.model = "local"
+        cfg.art_styles = ["style1", "style2"]
+        
+        with patch('pixelbliss.prompts.get_logger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_get_logger.return_value = mock_logger
+            
+            result = make_variants_from_base("base prompt", 2, cfg)
+            
+            assert result == ["variant1", "variant2"]
+            mock_provider.make_variants_from_base.assert_called_once_with("base prompt", 2, ["style1", "style2"])
+            mock_logger.info.assert_called_once()
+            mock_logger.debug.assert_called()  # Should be called for each variant
+            assert mock_logger.debug.call_count == 2
+
+    @patch('pixelbliss.prompts.get_provider')
+    @patch('pixelbliss.prompts.time.time')
+    def test_make_variants_from_base_error_without_progress_logger(self, mock_time, mock_get_provider):
+        # Setup mocks
+        mock_time.side_effect = [0.0, 1.5]  # start and end times
+        mock_provider = Mock()
+        mock_provider.make_variants_from_base.side_effect = Exception("API Error")
+        mock_get_provider.return_value = mock_provider
+        
+        cfg = Mock()
+        cfg.prompt_generation.provider = "dummy"
+        cfg.prompt_generation.model = "local"
+        cfg.art_styles = ["style1", "style2"]
+        
+        with patch('pixelbliss.prompts.get_logger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_get_logger.return_value = mock_logger
+            
+            with pytest.raises(Exception, match="API Error"):
+                make_variants_from_base("base prompt", 2, cfg)  # No progress logger
+            
+            mock_provider.make_variants_from_base.assert_called_once_with("base prompt", 2, ["style1", "style2"])
+            mock_logger.error.assert_called_once()
+            call_args = mock_logger.error.call_args[0][0]
+            assert "Variant prompt generation failed after 1.50s: API Error" in call_args
+
+    @pytest.mark.asyncio
+    @patch('pixelbliss.prompts.get_provider')
+    @patch('pixelbliss.prompts.time.time')
+    async def test_make_variants_from_base_async_error_without_progress_logger(self, mock_time, mock_get_provider):
+        # Setup mocks
+        mock_time.side_effect = [0.0, 2.5]  # start and end times
+        mock_provider = Mock()
+        mock_provider.make_variants_from_base_async = AsyncMock(side_effect=Exception("Connection timeout"))
+        mock_get_provider.return_value = mock_provider
+        
+        cfg = Mock()
+        cfg.prompt_generation.provider = "openai"
+        cfg.prompt_generation.model = "gpt-5"
+        cfg.art_styles = ["style1", "style2"]
+        cfg.prompt_generation.max_concurrency = 5
+        
+        with patch('pixelbliss.prompts.get_logger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_get_logger.return_value = mock_logger
+            
+            with pytest.raises(Exception, match="Connection timeout"):
+                await make_variants_from_base_async("base prompt", 2, cfg)  # No progress logger
+            
+            mock_provider.make_variants_from_base_async.assert_called_once_with(
+                "base prompt", 2, ["style1", "style2"], 5, None
+            )
+            mock_logger.error.assert_called_once()
+            call_args = mock_logger.error.call_args[0][0]
+            assert "Async variant prompt generation failed after 2.50s: Connection timeout" in call_args
+
+    @pytest.mark.asyncio
+    @patch('pixelbliss.prompts.get_provider')
+    @patch('pixelbliss.prompts.time.time')
+    async def test_make_variants_from_base_async_without_progress_logger(self, mock_time, mock_get_provider):
+        # Setup mocks
+        mock_time.side_effect = [0.0, 3.0]  # start and end times
+        mock_provider = Mock()
+        mock_provider.make_variants_from_base_async = AsyncMock(return_value=["async_variant1", "async_variant2"])
+        mock_get_provider.return_value = mock_provider
+        
+        cfg = Mock()
+        cfg.prompt_generation.provider = "openai"
+        cfg.prompt_generation.model = "gpt-5"
+        cfg.art_styles = ["style1", "style2"]
+        cfg.prompt_generation.max_concurrency = 5
+        
+        with patch('pixelbliss.prompts.get_logger') as mock_get_logger:
+            mock_logger = Mock()
+            mock_get_logger.return_value = mock_logger
+            
+            result = await make_variants_from_base_async("base prompt", 2, cfg)
+            
+            assert result == ["async_variant1", "async_variant2"]
+            mock_provider.make_variants_from_base_async.assert_called_once_with(
+                "base prompt", 2, ["style1", "style2"], 5, None
+            )
+            mock_logger.info.assert_called_once()
+            mock_logger.debug.assert_called()  # Should be called for each variant
+            assert mock_logger.debug.call_count == 2

@@ -92,6 +92,8 @@ prompt_generation:
   provider: "openai"        # Prompt generation provider: "openai" for GPT models, "dummy" for testing
   model: "gpt-5"            # AI model for generating base prompts, variants, and alt text
   num_prompt_variants: 5    # Number of prompt variations to generate from each base prompt (1 base -> 5 variants)
+  async_enabled: true       # Enable parallel processing of prompt generation (faster generation)
+  max_concurrency: 10     # Optional limit on concurrent API requests (null = no limit, use integer to limit)
   # System/style rules enforced at runtime: no real people/logos/NSFW content, includes negative prompts, aesthetic style hints
 
 image_generation:

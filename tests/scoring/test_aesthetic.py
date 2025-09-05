@@ -632,3 +632,50 @@ class TestScoreCandidatesParallel:
         # Original candidates should now have aesthetic scores
         assert "aesthetic" in candidates[0]
         assert "aesthetic" in candidates[1]
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_with_progress_logger(self, mock_config_with_async):
+        """Test parallel scoring with progress logger."""
+        candidates = [
+            {"image_url": "https://example.com/image1.jpg"},
+            {"image_url": "https://example.com/image2.jpg"}
+        ]
+        
+        mock_progress_logger = Mock()
+        
+        result = await score_candidates_parallel(candidates, mock_config_with_async, mock_progress_logger)
+        
+        assert len(result) == 2
+        for candidate in result:
+            assert "aesthetic" in candidate
+        
+        # Verify progress logger was called
+        mock_progress_logger.start_operation.assert_called_once_with("aesthetic_scoring", 2, "parallel aesthetic scoring")
+        assert mock_progress_logger.update_operation_progress.call_count == 2
+        mock_progress_logger.finish_operation.assert_called_once_with("aesthetic_scoring", True)
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_with_exceptions_and_logger(self, mock_config_with_async):
+        """Test parallel scoring with exceptions and progress logger."""
+        candidates = [
+            {"image_url": "https://example.com/image1.jpg"},
+            {"image_url": "https://example.com/image2.jpg"}
+        ]
+        
+        mock_progress_logger = Mock()
+        
+        # Mock aesthetic_async to raise exception for one candidate
+        with patch('pixelbliss.scoring.aesthetic.aesthetic_async') as mock_aesthetic:
+            mock_aesthetic.side_effect = [0.7, Exception("API Error")]
+            
+            result = await score_candidates_parallel(candidates, mock_config_with_async, mock_progress_logger)
+            
+            assert len(result) == 2
+            assert result[0]["aesthetic"] == 0.7  # First succeeded
+            assert result[1]["aesthetic"] == 0.5  # Second failed, got fallback
+            
+            # Verify progress logger was called
+            mock_progress_logger.start_operation.assert_called_once_with("aesthetic_scoring", 2, "parallel aesthetic scoring")
+            assert mock_progress_logger.update_operation_progress.call_count == 2
+            mock_progress_logger.finish_operation.assert_called_once_with("aesthetic_scoring", False)
+            mock_progress_logger.warning.assert_called_once_with("1 aesthetic scores used fallback values")

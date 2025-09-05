@@ -1265,3 +1265,350 @@ class TestAsyncPromptGeneration:
         assert result == 0
         mock_sequential.assert_called_once()  # Verify sequential path was used
         mock_asyncio_run.assert_not_called()  # Verify async path was not used
+
+    @pytest.mark.asyncio
+    async def test_generate_for_variant_with_progress_logger_and_semaphore(self, sample_config):
+        """Test generate_for_variant with progress logger and semaphore to cover missing lines."""
+        from pixelbliss.run_once import generate_for_variant
+        
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
+        mock_progress_logger = Mock()
+        semaphore = asyncio.Semaphore(1)
+        
+        with patch('pixelbliss.providers.base.generate_image', return_value=mock_result) as mock_generate:
+            result = await generate_for_variant("test prompt", sample_config, semaphore, mock_progress_logger, 0)
+            
+            assert len(result) == 1
+            assert result[0]["prompt"] == "test prompt"
+            assert result[0]["provider"] == "fal"
+            mock_progress_logger.update_operation_progress.assert_called_once_with("image_generation")
+
+    @pytest.mark.asyncio
+    async def test_generate_for_variant_exception_with_progress_logger(self, sample_config):
+        """Test generate_for_variant exception handling with progress logger."""
+        from pixelbliss.run_once import generate_for_variant
+        
+        mock_progress_logger = Mock()
+        
+        with patch('pixelbliss.providers.base.generate_image', side_effect=Exception("API Error")) as mock_generate:
+            # generate_for_variant catches exceptions and returns empty list
+            result = await generate_for_variant("test prompt", sample_config, None, mock_progress_logger, 0)
+            
+            assert len(result) == 0  # Should return empty list on exception
+            # Should still update progress even on exception
+            mock_progress_logger.update_operation_progress.assert_called_once_with("image_generation")
+
+    @pytest.mark.asyncio
+    async def test_run_all_variants_with_progress_logger(self, sample_config):
+        """Test run_all_variants with progress logger to cover missing lines."""
+        from pixelbliss.run_once import run_all_variants
+        
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
+        mock_progress_logger = Mock()
+        
+        with patch('pixelbliss.providers.base.generate_image', return_value=mock_result) as mock_generate:
+            result = await run_all_variants(["prompt1", "prompt2"], sample_config, mock_progress_logger)
+            
+            assert len(result) == 2
+            mock_progress_logger.start_operation.assert_called_once_with("image_generation", 2, "parallel image generation")
+            mock_progress_logger.finish_operation.assert_called_once_with("image_generation", True)
+
+    @pytest.mark.asyncio
+    async def test_run_all_variants_with_failures_and_progress_logger(self, sample_config):
+        """Test run_all_variants with failures and progress logger to cover warning lines."""
+        from pixelbliss.run_once import run_all_variants
+        
+        mock_progress_logger = Mock()
+        
+        # Mock generate_for_variant to raise exceptions
+        with patch('pixelbliss.run_once.generate_for_variant', side_effect=Exception("Variant Error")) as mock_generate:
+            with patch('pixelbliss.alerts.webhook.send_failure') as mock_alert:
+                result = await run_all_variants(["prompt1", "prompt2"], sample_config, mock_progress_logger)
+                
+                assert len(result) == 0  # No successful variants
+                mock_progress_logger.start_operation.assert_called_once_with("image_generation", 2, "parallel image generation")
+                mock_progress_logger.finish_operation.assert_called_once_with("image_generation", False)
+                mock_progress_logger.warning.assert_called_once_with("2 image generation variants failed")
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base_async')
+    @patch('pixelbliss.run_once.generate_images_sequential')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
+    @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_images')
+    @patch('pixelbliss.run_once.storage.fs.save_meta')
+    @patch('pixelbliss.run_once.manifest.append')
+    @patch('pixelbliss.run_once.now_iso')
+    @pytest.mark.asyncio
+    async def test_post_once_async_prompt_generation(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
+                                             mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
+                                             mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
+                                             mock_quality, mock_floors, mock_entropy, mock_brightness,
+                                             mock_sequential, mock_variants_async, mock_base, mock_category, mock_config):
+        """Test post_once with async prompt generation enabled."""
+        # Setup config with async prompt generation enabled
+        mock_cfg = Mock()
+        mock_cfg.categories = ["test"]
+        mock_cfg.image_generation.async_enabled = False
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 2
+        mock_cfg.prompt_generation.async_enabled = True  # Enable async prompt generation
+        mock_cfg.prompt_generation.provider = "openai"
+        mock_cfg.upscale.enabled = False
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants_async.return_value = ["variant1", "variant2"]  # Async variant generation
+        
+        # Mock sequential generation result
+        mock_image = Mock()
+        mock_candidates = [
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"}
+        ]
+        mock_sequential.return_value = mock_candidates
+        
+        # Mock scoring to pass all checks
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = True
+        mock_quality.return_value = (True, 0.8)
+        
+        # Mock rescoring
+        mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.5, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_collage.return_value = "/test/collage.jpg"
+        mock_hashes.return_value = []
+        mock_duplicate.return_value = False
+        mock_phash.return_value = "abc123"
+        mock_variants_wall.return_value = {"desktop": mock_image}
+        mock_alt.return_value = "alt text"
+        mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+        mock_iso.return_value = "2024-01-01T12:00:00"
+        
+        result = await post_once(dry_run=True)
+        
+        assert result == 0
+        mock_variants_async.assert_called_once()  # Verify async prompt generation was used
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.generate_images_sequential')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.aesthetic.aesthetic')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
+    @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_images')
+    @patch('pixelbliss.run_once.storage.fs.save_meta')
+    @patch('pixelbliss.run_once.manifest.append')
+    @patch('pixelbliss.run_once.now_iso')
+    @patch('pixelbliss.twitter.client.upload_media')
+    @patch('pixelbliss.twitter.client.set_alt_text')
+    @patch('pixelbliss.twitter.client.create_tweet')
+    @patch('pixelbliss.run_once.manifest.update_tweet_id')
+    @patch('pixelbliss.alerts.webhook.send_success')
+    @pytest.mark.asyncio
+    async def test_post_once_upscale_success(self, mock_send_success, mock_update_tweet, mock_create_tweet, mock_set_alt,
+                                     mock_upload, mock_iso, mock_append, mock_save_meta, mock_save_images, mock_alt,
+                                     mock_variants_wall, mock_phash, mock_duplicate, mock_hashes, mock_collage,
+                                     mock_outdir, mock_slug, mock_today, mock_rescore, mock_aesthetic, mock_quality,
+                                     mock_floors, mock_entropy, mock_brightness, mock_sequential, mock_variants,
+                                     mock_base, mock_category, mock_config):
+        """Test post_once with successful upscaling."""
+        # Setup config
+        mock_cfg = Mock()
+        mock_cfg.categories = ["test"]
+        mock_cfg.image_generation.async_enabled = False
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.prompt_generation.async_enabled = False
+        mock_cfg.prompt_generation.provider = "dummy"
+        mock_cfg.upscale.enabled = True
+        mock_cfg.upscale.provider = "test_provider"
+        mock_cfg.upscale.model = "test_model"
+        mock_cfg.upscale.factor = 2
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock successful image generation
+        mock_image = Mock()
+        mock_upscaled_image = Mock()
+        mock_sequential.return_value = [{"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"}]
+        
+        # Mock scoring to pass all checks
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = True
+        mock_quality.return_value = (True, 0.8)
+        mock_aesthetic.return_value = 0.7
+        
+        # Mock rescoring
+        mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_collage.return_value = "/test/collage.jpg"
+        mock_hashes.return_value = []
+        mock_duplicate.return_value = False
+        mock_phash.return_value = "abc123"
+        
+        # Mock successful upscale
+        with patch('pixelbliss.providers.upscale.upscale') as mock_upscale:
+            mock_upscale.return_value = mock_upscaled_image  # Upscale succeeds
+            
+            mock_variants_wall.return_value = {"desktop": mock_upscaled_image}
+            mock_alt.return_value = "alt text"
+            mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+            mock_iso.return_value = "2024-01-01T12:00:00"
+            
+            # Mock Twitter operations
+            mock_upload.return_value = ["media_id_123"]
+            mock_create_tweet.return_value = "tweet_id_456"
+            
+            result = await post_once(dry_run=False)
+            
+            assert result == 0
+            mock_upscale.assert_called_once_with(mock_image, "test_provider", "test_model", 2)
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.generate_images_sequential')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.aesthetic.aesthetic')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
+    @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_images')
+    @patch('pixelbliss.run_once.storage.fs.save_meta')
+    @patch('pixelbliss.run_once.manifest.append')
+    @patch('pixelbliss.run_once.now_iso')
+    @patch('pixelbliss.twitter.client.upload_media')
+    @patch('pixelbliss.twitter.client.set_alt_text')
+    @patch('pixelbliss.twitter.client.create_tweet')
+    @pytest.mark.asyncio
+    async def test_post_once_social_media_exception(self, mock_create_tweet, mock_set_alt, mock_upload, mock_iso,
+                                            mock_append, mock_save_meta, mock_save_images, mock_alt, mock_variants_wall,
+                                            mock_phash, mock_duplicate, mock_hashes, mock_collage, mock_outdir,
+                                            mock_slug, mock_today, mock_rescore, mock_aesthetic, mock_quality,
+                                            mock_floors, mock_entropy, mock_brightness, mock_sequential, mock_variants,
+                                            mock_base, mock_category, mock_config):
+        """Test post_once with social media posting exception."""
+        # Setup config
+        mock_cfg = Mock()
+        mock_cfg.categories = ["test"]
+        mock_cfg.image_generation.async_enabled = False
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.prompt_generation.async_enabled = False
+        mock_cfg.prompt_generation.provider = "dummy"
+        mock_cfg.upscale.enabled = False
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock successful image generation
+        mock_image = Mock()
+        mock_sequential.return_value = [{"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"}]
+        
+        # Mock scoring to pass all checks
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = True
+        mock_quality.return_value = (True, 0.8)
+        mock_aesthetic.return_value = 0.7
+        
+        # Mock rescoring
+        mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_collage.return_value = "/test/collage.jpg"
+        mock_hashes.return_value = []
+        mock_duplicate.return_value = False
+        mock_phash.return_value = "abc123"
+        mock_variants_wall.return_value = {"desktop": mock_image}
+        mock_alt.return_value = "alt text"
+        mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+        mock_iso.return_value = "2024-01-01T12:00:00"
+        
+        # Mock Twitter operations to fail
+        mock_upload.side_effect = Exception("Twitter API Error")
+        
+        result = await post_once(dry_run=False)
+        
+        assert result == 1  # Should return error code
+        mock_upload.assert_called_once()
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @pytest.mark.asyncio
+    async def test_post_once_pipeline_exception(self, mock_config):
+        """Test post_once with pipeline exception."""
+        # Mock config loading to raise an exception
+        mock_config.side_effect = Exception("Config loading failed")
+        
+        result = await post_once(dry_run=True)
+        
+        assert result == 1  # Should return error code
