@@ -69,28 +69,20 @@ def post_once():
     # C) Generate images - try FAL models with Replicate fallback by index
     candidates = []
     for vp in variant_prompts:
-        imgres = None
         # Loop through models by index, trying FAL first then Replicate fallback for same index
         for i in range(len(cfg.image_generation.model_fal)):
             # Try FAL model at index i
-            if i < len(cfg.image_generation.model_fal):
-                fal_model = cfg.image_generation.model_fal[i]
-                imgres = providers.base.generate_image(vp, "fal", fal_model)
-                if imgres:
-                    candidates.append({**imgres, "prompt": vp})
-                    break
-            
+            fal_model = cfg.image_generation.model_fal[i]
+            imgres = providers.base.generate_image(vp, "fal", fal_model)
+
             # If FAL failed and we have a corresponding Replicate model, try it
-            if not imgres and i < len(cfg.image_generation.model_replicate):
+            if not imgres:
                 replicate_model = cfg.image_generation.model_replicate[i]
                 imgres = providers.base.generate_image(vp, "replicate", replicate_model)
-                if imgres:
-                    candidates.append({**imgres, "prompt": vp})
-                    break
-        
-        # If we still don't have a result after trying all model pairs, continue to next prompt
-        if not imgres:
-            continue
+
+            # Add image candidate if available
+            if imgres:
+                candidates.append({**imgres, "prompt": vp})
 
     if not candidates:
         alerts.webhook.send_failure("no images produced")
