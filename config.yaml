@@ -5,13 +5,13 @@ categories: [ "sci-fi", "tech", "mystic", "geometry", "nature", "neo-noir", "wat
 rotation_minutes: 180   # category index = floor(now_min / rotation_minutes) % len(categories)
 
 prompt_generation:
-  provider: "dummy"        # openai | dummy
+  provider: "openai"        # openai | dummy
   model: "gpt-5"            # default model for base prompt, variants, and alt text
   num_prompt_variants: 3        # 1 base -> 3 variants
   # system/style rules enforced at runtime (no real people/logos/NSFW, negative prompts, style hints)
 
 image_generation:
-  provider_order: ["dummy_local", "dummy_local"]
+  provider_order: ["fal", "replicate"]
   model_fal: ["fal-ai/gemini-25-flash-image", "fal-ai/bytedance/seedream/v3/text-to-image", "fal-ai/imagen4/preview/ultra"]     # list of models to use
   model_replicate: ["google/gemini-2.5-flash-image", "bytedance/seedream-3", "google/imagen-4-ultra"]   # list of models to use
   retries_per_image: 2
@@ -31,7 +31,7 @@ ranking:
   phash_distance_min: 6
 
 aesthetic_scoring:
-  provider: "dummy_local"
+  provider: "replicate"
   model: "methexis-inc/img2aestheticscore:ec5029694b29e51fa9e5b794d73ba8103569d5d3ef3d60b7a8fdef18b9997b90"  # Example aesthetic scoring model
   score_min: 1.0    # Minimum expected score from the model
   score_max: 10.0    # Maximum expected score from the model

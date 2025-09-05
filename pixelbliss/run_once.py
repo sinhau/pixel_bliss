@@ -73,12 +73,12 @@ def post_once(dry_run: bool = False):
         for i in range(len(cfg.image_generation.model_fal)):
             # Try FAL model at index i
             fal_model = cfg.image_generation.model_fal[i]
-            imgres = providers.base.generate_image(vp, "fal", fal_model)
+            imgres = providers.base.generate_image(vp, cfg.image_generation.provider_order[0], fal_model)
 
             # If FAL failed and we have a corresponding Replicate model, try it
             if not imgres:
                 replicate_model = cfg.image_generation.model_replicate[i]
-                imgres = providers.base.generate_image(vp, "replicate", replicate_model)
+                imgres = providers.base.generate_image(vp, cfg.image_generation.provider_order[1], replicate_model)
 
             # Add image candidate if available
             if imgres:

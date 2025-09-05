@@ -97,5 +97,4 @@ def aesthetic(image_url: str, cfg: Config) -> float:
     elif provider == "replicate":
         return aesthetic_replicate(image_url, cfg)
     else:
-        print(f"Unknown aesthetic scoring provider: {provider}, falling back to dummy")
-        return aesthetic_dummy_local(image_url, cfg)
+        raise NotImplementedError(f"Unknown provider {provider}")

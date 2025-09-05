@@ -16,10 +16,6 @@ def _generate_fal_image_with_retry(prompt: str, model: str) -> ImageResult:
         model,
         arguments={
             "prompt": prompt,
-            "aspect_ratio": "1:1",        # Default aspect ratio
-            "num_images": 1,              # Generate 1 image
-            "resolution": "1K",           # Default resolution
-            "negative_prompt": ""         # Empty negative prompt by default
         }
     )
 
