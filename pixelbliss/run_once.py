@@ -56,7 +56,7 @@ def tweet_url(tweet_id: str) -> str:
 def fs_abs(path: str) -> str:
     return path  # Assuming relative to web root
 
-def post_once():
+def post_once(dry_run: bool = False):
     cfg = config.load_config()
 
     # A) Stateless category selection
@@ -174,6 +174,9 @@ def post_once():
         "tweet_id": None,
         "phash": ph
     })
+
+    if dry_run:
+        return 0
 
     # Post to X
     first_key = "phone_9x16_2k" if "phone_9x16_2k" in public_paths else next(iter(public_paths))

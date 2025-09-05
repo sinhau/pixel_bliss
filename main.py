@@ -21,8 +21,7 @@ def main():
         sys.exit(post_once())
     elif args.command == 'dry-run':
         # Implement dry run, similar but skip posting
-        print("Dry run not implemented yet")
-        sys.exit(0)
+        sys.exit(post_once(True))
     elif args.command == 'repair-manifest':
         # Implement repair
         print("Repair manifest not implemented yet")
