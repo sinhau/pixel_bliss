@@ -58,3 +58,4 @@ pytest tests/ --cov=pixelbliss --cov-report=term-missing
 
 ```
 0 10-22/3 * * * cd /path/to/pixelbliss && python main.py post-once >> log.txt 2>&1
+```
