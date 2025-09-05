@@ -48,8 +48,6 @@ def generate_dummy_local_image(prompt: str, model: str) -> Optional[ImageResult]
         
         # Generate a dummy seed based on prompt hash for consistency
         seed = hash(prompt) % 1000000000
-        if seed < 0:
-            seed = abs(seed)
         
         return {
             "image": image,

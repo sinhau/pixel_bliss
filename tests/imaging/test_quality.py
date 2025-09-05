@@ -197,3 +197,51 @@ class TestQualityIntegration:
         image = Image.new('RGB', (100, 100), color=(128, 128, 128))
         passes, score = quality.exposure_score(image, 0.0)
         assert score == 0.0, "Score should be 0.0 when clip_max is 0"
+
+    def test_evaluate_local_all_pass(self):
+        """Test evaluate_local when all quality checks pass."""
+        # Create mock config with very lenient values to ensure all checks pass
+        mock_cfg = Mock()
+        mock_cfg.local_quality = Mock()
+        mock_cfg.local_quality.resize_long = 768
+        mock_cfg.local_quality.min_side = 50   # Very low minimum
+        mock_cfg.local_quality.ar_min = 0.1    # Very wide range
+        mock_cfg.local_quality.ar_max = 10.0   # Very wide range
+        mock_cfg.local_quality.sharpness_min = 0.1  # Very low threshold
+        mock_cfg.local_quality.sharpness_good = 10.0  # Low good threshold
+        mock_cfg.local_quality.clip_max = 0.9  # Very high tolerance
+        
+        # Create an image that should definitely pass all checks
+        # Make it large enough and with good contrast for sharpness
+        good_array = np.full((800, 600, 3), 100, dtype=np.uint8)  # Dark gray base
+        # Add high contrast pattern for guaranteed sharpness
+        good_array[::5, ::5] = 200  # High contrast pattern every 5 pixels
+        good_img = Image.fromarray(good_array)
+        
+        passes, score = quality.evaluate_local(good_img, mock_cfg)
+        assert passes == True, f"Image should pass all quality checks, got passes={passes}, score={score}"
+        assert score > 0.0, f"Quality score should be positive, got {score}"
+        assert score <= 1.0, f"Quality score should not exceed 1.0, got {score}"
+
+    def test_evaluate_local_exposure_fail(self):
+        """Test evaluate_local when exposure check fails (line 162 coverage)."""
+        # Create mock config that passes size and sharpness but fails exposure
+        mock_cfg = Mock()
+        mock_cfg.local_quality = Mock()
+        mock_cfg.local_quality.resize_long = 768
+        mock_cfg.local_quality.min_side = 50   # Low minimum to pass size check
+        mock_cfg.local_quality.ar_min = 0.1    # Wide range to pass aspect ratio
+        mock_cfg.local_quality.ar_max = 10.0   
+        mock_cfg.local_quality.sharpness_min = 0.1  # Low threshold to pass sharpness
+        mock_cfg.local_quality.sharpness_good = 10.0
+        mock_cfg.local_quality.clip_max = 0.01  # Very strict clipping tolerance to fail exposure
+        
+        # Create an overexposed image that will fail exposure but pass size/sharpness
+        overexposed_array = np.full((800, 600, 3), 255, dtype=np.uint8)  # All white (overexposed)
+        # Add some pattern for sharpness
+        overexposed_array[::10, ::10] = 200  # Slight pattern for sharpness
+        overexposed_img = Image.fromarray(overexposed_array)
+        
+        passes, score = quality.evaluate_local(overexposed_img, mock_cfg)
+        assert passes == False, "Image should fail exposure check"
+        assert score == 0.0, "Score should be 0.0 when exposure check fails"

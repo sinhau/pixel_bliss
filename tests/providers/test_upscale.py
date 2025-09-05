@@ -3,17 +3,19 @@ import io
 import base64
 from PIL import Image
 from unittest.mock import patch, Mock, MagicMock
-from pixelbliss.providers.upscale import (
-    _image_to_data_uri,
-    _dummy_local_upscale,
-    upscale
-)
-
 
 # Mock the retry decorator to avoid delays in tests
 def no_retry(func):
     """Mock retry decorator that doesn't retry."""
     return func
+
+# Patch retry before importing the module
+with patch('pixelbliss.providers.upscale.retry', no_retry):
+    from pixelbliss.providers.upscale import (
+        _image_to_data_uri,
+        _dummy_local_upscale,
+        upscale
+    )
 
 
 @pytest.fixture
@@ -318,3 +320,18 @@ class TestUpscale:
                 
             with pytest.raises(Exception, match="HTTP 404"):
                 mock_upscale_func()
+
+    @patch('pixelbliss.providers.upscale.fal_client.run')
+    def test_upscale_fal_no_image_error(self, mock_fal_run, sample_image):
+        """Test FAL provider raises error when no image is returned (line 108)."""
+        mock_fal_run.return_value = {"status": "success"}  # No image field
+        
+        # Call the underlying function directly to bypass retry decorator
+        with pytest.raises(ValueError, match="No upscaled image returned from FAL API"):
+            upscale.__wrapped__(sample_image, "fal", "fal-ai/esrgan", 2)
+
+    def test_upscale_unsupported_provider_error(self, sample_image):
+        """Test error for unsupported provider (line 122)."""
+        # Call the underlying function directly to bypass retry decorator
+        with pytest.raises(ValueError, match="Unsupported upscale provider: invalid_provider"):
+            upscale.__wrapped__(sample_image, "invalid_provider", "model", 2)

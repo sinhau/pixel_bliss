@@ -55,20 +55,20 @@ def select_category(cfg: Config):
         # Default to time-based selection
         return category_by_time(cfg.categories, cfg.rotation_minutes)
 
-def try_in_order(prompt: str, providers: List[str], models: List[str], retries: int) -> Optional[ImageResult]:
+def try_in_order(prompt: str, provider_names: List[str], models: List[str], retries: int) -> Optional[ImageResult]:
     """
     Try to generate an image using providers and models in order until one succeeds.
     
     Args:
         prompt: The text prompt for image generation.
-        providers: List of provider names to try in order.
+        provider_names: List of provider names to try in order.
         models: List of model names corresponding to each provider.
         retries: Number of retries per provider/model combination.
         
     Returns:
         Optional[ImageResult]: The first successful image result, or None if all fail.
     """
-    for prov, mod in zip(providers, models):
+    for prov, mod in zip(provider_names, models):
         result = providers.base.generate_image(prompt, prov, mod, retries)
         if result:
             return result

@@ -4,7 +4,8 @@ import pytz
 from unittest.mock import Mock, patch
 from pixelbliss.run_once import (
     category_by_time, category_by_random, select_category,
-    normalize_and_rescore, today_local, now_iso, tweet_url, fs_abs
+    normalize_and_rescore, today_local, now_iso, tweet_url, fs_abs,
+    try_in_order, post_once
 )
 
 
@@ -169,3 +170,387 @@ class TestUtilityFunctions:
         path = "relative/path/to/file.jpg"
         result = fs_abs(path)
         assert result == path  # Currently just returns input
+
+
+class TestTryInOrder:
+    """Test try_in_order function."""
+
+    @patch('pixelbliss.run_once.providers.base.generate_image')
+    def test_try_in_order_success_first_provider(self, mock_generate):
+        """Test try_in_order when first provider succeeds."""
+        mock_result = {"image": "mock_image", "provider": "fal"}
+        mock_generate.return_value = mock_result
+        
+        result = try_in_order("test prompt", ["fal", "replicate"], ["model1", "model2"], 3)
+        
+        assert result == mock_result
+        mock_generate.assert_called_once_with("test prompt", "fal", "model1", 3)
+
+    @patch('pixelbliss.run_once.providers.base.generate_image')
+    def test_try_in_order_success_second_provider(self, mock_generate):
+        """Test try_in_order when first provider fails, second succeeds."""
+        mock_result = {"image": "mock_image", "provider": "replicate"}
+        mock_generate.side_effect = [None, mock_result]  # First call fails, second succeeds
+        
+        result = try_in_order("test prompt", ["fal", "replicate"], ["model1", "model2"], 3)
+        
+        assert result == mock_result
+        assert mock_generate.call_count == 2
+
+    @patch('pixelbliss.run_once.providers.base.generate_image')
+    def test_try_in_order_all_fail(self, mock_generate):
+        """Test try_in_order when all providers fail."""
+        mock_generate.return_value = None
+        
+        result = try_in_order("test prompt", ["fal", "replicate"], ["model1", "model2"], 3)
+        
+        assert result is None
+        assert mock_generate.call_count == 2
+
+
+class TestPostOnce:
+    """Test post_once function."""
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.providers.base.generate_image')
+    @patch('pixelbliss.alerts.webhook.send_failure')
+    def test_post_once_no_candidates(self, mock_send_failure, mock_generate, mock_variants, 
+                                   mock_base, mock_category, mock_config):
+        """Test post_once when no image candidates are generated."""
+        # Setup mocks
+        mock_cfg = Mock()
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_config.return_value = mock_cfg
+        
+        mock_category.return_value = "test_category"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1", "variant2"]
+        mock_generate.return_value = None  # No images generated
+        
+        result = post_once(dry_run=True)
+        
+        assert result == 1  # Should return error code
+        mock_send_failure.assert_called_once()
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.providers.base.generate_image')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.aesthetic.aesthetic')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
+    @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_images')
+    @patch('pixelbliss.run_once.storage.fs.save_meta')
+    @patch('pixelbliss.run_once.manifest.append')
+    @patch('pixelbliss.run_once.now_iso')
+    def test_post_once_dry_run_success(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
+                                     mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
+                                     mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
+                                     mock_aesthetic, mock_quality, mock_floors, mock_entropy, mock_brightness,
+                                     mock_generate, mock_variants, mock_base, mock_category, mock_config):
+        """Test post_once dry_run success path."""
+        # Setup config
+        mock_cfg = Mock()
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.upscale.enabled = False
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks for successful path
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock successful image generation
+        mock_image = Mock()
+        mock_generate.return_value = {"image": mock_image, "provider": "fal", "model": "test", "seed": 123}
+        
+        # Mock scoring to pass all checks
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = True
+        mock_quality.return_value = (True, 0.8)
+        mock_aesthetic.return_value = 0.7
+        
+        # Mock rescoring
+        mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_collage.return_value = "/test/collage.jpg"
+        mock_hashes.return_value = []
+        mock_duplicate.return_value = False
+        mock_phash.return_value = "abc123"
+        mock_variants_wall.return_value = {"desktop": mock_image}
+        mock_alt.return_value = "alt text"
+        mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+        mock_iso.return_value = "2024-01-01T12:00:00"
+        
+        result = post_once(dry_run=True)
+        
+        assert result == 0  # Should succeed and return 0 for dry_run
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.providers.base.generate_image')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.alerts.webhook.send_failure')
+    def test_post_once_sanity_check_fails(self, mock_send_failure, mock_floors, mock_entropy, mock_brightness,
+                                        mock_generate, mock_variants, mock_base, mock_category, mock_config):
+        """Test post_once when sanity check fails."""
+        # Setup config
+        mock_cfg = Mock()
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock successful image generation
+        mock_image = Mock()
+        mock_generate.return_value = {"image": mock_image, "provider": "fal", "model": "test", "seed": 123}
+        
+        # Mock scoring - sanity check fails
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = False  # Sanity check fails
+        
+        result = post_once(dry_run=True)
+        
+        assert result == 1  # Should return error code
+        mock_send_failure.assert_called_once_with("all candidates failed sanity/scoring", mock_cfg)
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.providers.base.generate_image')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.alerts.webhook.send_failure')
+    def test_post_once_local_quality_fails(self, mock_send_failure, mock_quality, mock_floors, mock_entropy, mock_brightness,
+                                         mock_generate, mock_variants, mock_base, mock_category, mock_config):
+        """Test post_once when local quality check fails."""
+        # Setup config
+        mock_cfg = Mock()
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock successful image generation
+        mock_image = Mock()
+        mock_generate.return_value = {"image": mock_image, "provider": "fal", "model": "test", "seed": 123}
+        
+        # Mock scoring - local quality fails
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = True
+        mock_quality.return_value = (False, 0.3)  # Local quality fails
+        
+        result = post_once(dry_run=True)
+        
+        assert result == 1  # Should return error code
+        mock_send_failure.assert_called_once_with("all candidates failed sanity/scoring", mock_cfg)
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.providers.base.generate_image')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.aesthetic.aesthetic')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.alerts.webhook.send_failure')
+    def test_post_once_winner_is_duplicate(self, mock_send_failure, mock_phash_hex, mock_duplicate, mock_hashes, mock_collage,
+                                         mock_outdir, mock_slug, mock_today, mock_rescore, mock_aesthetic,
+                                         mock_quality, mock_floors, mock_entropy, mock_brightness, mock_generate,
+                                         mock_variants, mock_base, mock_category, mock_config):
+        """Test post_once when winner is duplicate."""
+        # Setup config
+        mock_cfg = Mock()
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock successful image generation
+        mock_image = Mock()
+        mock_generate.return_value = {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "image_url": "http://example.com/image.jpg"}
+        
+        # Mock scoring to pass all checks
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = True
+        mock_quality.return_value = (True, 0.8)
+        mock_aesthetic.return_value = 0.7  # This tests the image_url branch
+        
+        # Mock rescoring
+        mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_collage.return_value = "/test/collage.jpg"
+        mock_hashes.return_value = ["existing_hash"]
+        mock_duplicate.return_value = True  # Winner is duplicate
+        
+        result = post_once(dry_run=True)
+        
+        assert result == 0  # Should return 0 (not fatal)
+        mock_send_failure.assert_called_once_with("near-duplicate with manifest history", mock_cfg)
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.providers.base.generate_image')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.aesthetic.aesthetic')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
+    @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_images')
+    @patch('pixelbliss.run_once.storage.fs.save_meta')
+    @patch('pixelbliss.run_once.manifest.append')
+    @patch('pixelbliss.run_once.now_iso')
+    @patch('pixelbliss.twitter.client.upload_media')
+    @patch('pixelbliss.twitter.client.set_alt_text')
+    @patch('pixelbliss.twitter.client.create_tweet')
+    @patch('pixelbliss.run_once.manifest.update_tweet_id')
+    @patch('pixelbliss.alerts.webhook.send_success')
+    def test_post_once_full_execution(self, mock_send_success, mock_update_tweet, mock_create_tweet, mock_set_alt,
+                                    mock_upload, mock_iso, mock_append, mock_save_meta, mock_save_images, mock_alt,
+                                    mock_variants_wall, mock_phash, mock_duplicate, mock_hashes, mock_collage,
+                                    mock_outdir, mock_slug, mock_today, mock_rescore, mock_aesthetic, mock_quality,
+                                    mock_floors, mock_entropy, mock_brightness, mock_generate, mock_variants,
+                                    mock_base, mock_category, mock_config):
+        """Test post_once full execution (non-dry-run)."""
+        # Setup config
+        mock_cfg = Mock()
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.upscale.enabled = True
+        mock_cfg.upscale.provider = "test_provider"
+        mock_cfg.upscale.model = "test_model"
+        mock_cfg.upscale.factor = 2
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock successful image generation
+        mock_image = Mock()
+        mock_generate.return_value = {"image": mock_image, "provider": "fal", "model": "test", "seed": 123}
+        
+        # Mock scoring to pass all checks
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = True
+        mock_quality.return_value = (True, 0.8)
+        mock_aesthetic.return_value = 0.7
+        
+        # Mock rescoring
+        mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_collage.return_value = "/test/collage.jpg"
+        mock_hashes.return_value = []
+        mock_duplicate.return_value = False
+        mock_phash.return_value = "abc123"
+        
+        # Mock upscale (will test the upscale failure fallback)
+        with patch('pixelbliss.providers.upscale.upscale') as mock_upscale:
+            mock_upscale.return_value = None  # Upscale fails, should fallback
+            
+            mock_variants_wall.return_value = {"desktop": mock_image}
+            mock_alt.return_value = "alt text"
+            mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+            mock_iso.return_value = "2024-01-01T12:00:00"
+            
+            # Mock Twitter operations
+            mock_upload.return_value = ["media_id_123"]
+            mock_create_tweet.return_value = "tweet_id_456"
+            
+            result = post_once(dry_run=False)  # Non-dry-run
+            
+            assert result == 0  # Should succeed
+            mock_upload.assert_called_once()
+            mock_set_alt.assert_called_once_with("media_id_123", "alt text")
+            mock_create_tweet.assert_called_once()
+            mock_update_tweet.assert_called_once()
+            mock_send_success.assert_called_once()

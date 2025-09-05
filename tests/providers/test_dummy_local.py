@@ -26,19 +26,6 @@ class TestDummyLocalProvider:
         assert "seed" in result
         assert result["image_path"].endswith("test_image.png")
 
-    @patch('pixelbliss.providers.dummy_local.os.path.exists')
-    @patch('pixelbliss.providers.dummy_local.Image.open')
-    @patch('pixelbliss.providers.dummy_local.random.choice')
-    def test_generate_dummy_local_image_negative_hash(self, mock_random_choice, mock_image_open, mock_exists):
-        mock_exists.return_value = True
-        mock_random_choice.return_value = "test_image.png"
-        mock_image = Mock(spec=Image.Image)
-        mock_image_open.return_value = mock_image
-
-        # Use a prompt that will generate a negative hash
-        result = generate_dummy_local_image("negative_hash_prompt", "test model")
-        assert result is not None
-        assert result["seed"] >= 0  # Should be positive after abs()
 
     @patch('pixelbliss.providers.dummy_local.os.path.exists')
     def test_generate_dummy_local_image_file_not_found(self, mock_exists):
