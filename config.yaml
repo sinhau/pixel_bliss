@@ -1,57 +1,7 @@
 # Timezone for date/time operations and category rotation scheduling
 timezone: "America/Los_Angeles"
 
-# Comprehensive list of image categories/themes organized by genre - determines the subject matter and thematic content for generated images, rotated automatically based on rotation_minutes
-categories: [
-    # Cinematic & Atmosphere
-    "neo-noir", "film-noir", "cyberpunk", "retrowave", "synthwave", "vaporwave",
-    "dreamlike", "ethereal", "psychedelic", "surreal", "dystopian", "utopian",
-    "cinematic-still", "analog-film", "hdr-photography",
-
-    # Sci-Fi & Futuristic
-    "sci-fi", "space-opera", "futurism", "tech", "ai-fusion", "post-apocalyptic",
-    "mecha", "biomechanical", "robotic", "cyborg", "space-colony", "time-travel",
-
-    # Fantasy & Mystic
-    "mystic", "dark-fantasy", "fairytale", "mythology", "arcane-symbols",
-    "steampunk", "dieselpunk", "solarpunk", "magical-realism", "eldritch",
-    "alchemy", "dreamscape",
-
-    # Nature & Environment
-    "nature", "cosmic-minimal", "landscape", "underwater", "forest", "desert",
-    "mountains", "volcano", "tundra", "aurora", "celestial", "bioluminescence",
-    "bonsai", "flora-botanical", "microcosm",
-
-    # Abstract & Geometry
-    "geometry", "fractal", "low-poly", "op-art", "sacred-geometry",
-    "generative-art", "data-visualization", "kaleidoscopic", "mandala",
-    "abstract-expressionism", "glitch-art", "minimalism",
-
-    # Cultural & Historical
-    "renaissance", "baroque", "art-nouveau", "art-deco", "bauhaus",
-    "ukiyo-e", "byzantine", "tribal-patterns", "indigenous-art",
-    "cave-painting", "medieval-illumination", "gothic",
-
-    # Artistic Mediums
-    "watercolor", "oil-painting", "acrylic", "ink-wash", "charcoal",
-    "line-art", "vector-art", "pixel-art", "collage", "mixed-media",
-    "graffiti", "street-art", "stained-glass", "mosaic",
-
-    # Pop & Contemporary
-    "pop-art", "comic-book", "anime", "manga", "chibi", "graphic-novel",
-    "conceptual-art", "installation-art", "fashion-editorial", "album-cover",
-    "poster-design", "tattoo-art", "toy-design"
-]
-
-# Legacy art_styles removed - now using diverse knobs system for prompt generation
-
-
-# Category selection method: "time" for time-based rotation, "random" for random selection
-category_selection_method: "random"
-
-# Minutes each category stays active before rotating to next - category index = floor(now_min / rotation_minutes) % len(categories)
-# Only used when category_selection_method is "time"
-rotation_minutes: 180
+# Categories removed - now using pure knobs-based generation for maximum diversity
 
 prompt_generation:
   provider: "openai"        # Prompt generation provider: "openai" for GPT models, "dummy" for testing

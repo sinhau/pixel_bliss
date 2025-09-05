@@ -12,51 +12,20 @@ from .config import Config
 from .logging_config import get_logger, ProgressLogger
 import pytz
 
-def category_by_time(categories: List[str], rotation_minutes: int, now=None):
+def generate_theme_hint() -> str:
     """
-    Select a category based on the current time using rotation.
+    Generate a simple theme hint for knobs-based prompt generation.
+    This replaces the old category system with a lightweight theme suggestion.
     
-    Args:
-        categories: List of available categories to rotate through.
-        rotation_minutes: Number of minutes each category should be active.
-        now: Optional datetime to use instead of current time. Defaults to None.
-        
     Returns:
-        str: The category that should be active at the given time.
+        str: A simple theme hint for the knobs system.
     """
-    if now is None:
-        tz = pytz.timezone("America/Los_Angeles")  # From config
-        now = datetime.datetime.now(tz)
-    idx = ((now.hour * 60 + now.minute) // rotation_minutes) % len(categories)
-    return categories[idx]
-
-def category_by_random(categories: List[str]):
-    """
-    Select a category randomly from the available categories.
-    
-    Args:
-        categories: List of available categories to choose from.
-        
-    Returns:
-        str: A randomly selected category.
-    """
-    return random.choice(categories)
-
-def select_category(cfg: Config):
-    """
-    Select a category based on the configured selection method.
-    
-    Args:
-        cfg: Configuration object containing selection method and categories.
-        
-    Returns:
-        str: The selected category.
-    """
-    if cfg.category_selection_method == "random":
-        return category_by_random(cfg.categories)
-    else:
-        # Default to time-based selection
-        return category_by_time(cfg.categories, cfg.rotation_minutes)
+    # Simple theme hints that work well with the knobs system
+    themes = [
+        "abstract", "nature", "cosmic", "geometric", "atmospheric", 
+        "minimal", "organic", "crystalline", "flowing", "luminous"
+    ]
+    return random.choice(themes)
 
 def try_in_order(prompt: str, provider_names: List[str], models: List[str], retries: int) -> Optional[ImageResult]:
     """
@@ -379,20 +348,20 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         # Step 1: Load configuration
         progress_logger.step("Loading configuration")
         cfg = config.load_config()
-        logger.debug(f"Configuration loaded: {len(cfg.categories)} categories, async_enabled={cfg.image_generation.async_enabled}")
+        logger.debug(f"Configuration loaded, async_enabled={cfg.image_generation.async_enabled}")
         progress_logger.success("Configuration loaded successfully")
 
-        # Step 2: Category selection
-        progress_logger.step("Selecting category")
-        category = select_category(cfg)
-        logger.info(f"Selected category: {category} (method: {cfg.category_selection_method})")
-        progress_logger.success(f"Category selected", f"{category}")
+        # Step 2: Generate theme hint
+        progress_logger.step("Generating theme hint")
+        theme_hint = generate_theme_hint()
+        logger.info(f"Generated theme hint: {theme_hint}")
+        progress_logger.success(f"Theme hint generated", f"{theme_hint}")
 
         # Step 3: Generate prompts
         progress_logger.step("Generating prompts")
         
         # Generate base prompt with detailed logging
-        base_prompt = prompts.make_base(category, cfg, progress_logger)
+        base_prompt = prompts.make_base(theme_hint, cfg, progress_logger)
         logger.info(f"Base prompt generated: {base_prompt[:100]}...")
         
         # Generate variant prompts with detailed logging
@@ -451,7 +420,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             # Skip all scoring/collage/duplicate checks - proceed directly to upscaling
             # Set up output directory for saving files
             date_str = today_local()
-            slug = storage.paths.make_slug(category, base_prompt)
+            slug = storage.paths.make_slug(theme_hint, base_prompt)
             out_dir = storage.paths.output_dir(date_str, slug)
             logger.debug(f"Output directory: {out_dir}")
             
@@ -489,7 +458,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             ph = phash.phash_hex(wallpapers[next(iter(wallpapers))])
             
             meta = {
-                "category": category,
+                "theme_hint": theme_hint,
                 "base_prompt": base_prompt,
                 "variant_prompt": winner["prompt"],
                 "provider": winner["provider"],
@@ -510,9 +479,9 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             storage.fs.save_meta(out_dir, meta)
             
             manifest.append({
-                "id": f"{date_str}_{category}_{slug}",
+                "id": f"{date_str}_{theme_hint}_{slug}",
                 "date": date_str,
-                "category": category,
+                "theme_hint": theme_hint,
                 "files": public_paths,
                 "tweet_id": None,
                 "phash": ph
@@ -543,12 +512,12 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
                 logger.info(f"Tweet posted successfully, ID: {tweet_id}")
                 
                 # Update records with tweet ID
-                manifest.update_tweet_id(f"{date_str}_{category}_{slug}", tweet_id)
+                manifest.update_tweet_id(f"{date_str}_{theme_hint}_{slug}", tweet_id)
                 meta["tweet_id"] = tweet_id
                 storage.fs.save_meta(out_dir, meta)
                 
                 tweet_link = tweet_url(tweet_id)
-                alerts.webhook.send_success(category, meta["model"], tweet_link, public_paths[base_img_key], cfg)
+                alerts.webhook.send_success(theme_hint, meta["model"], tweet_link, public_paths[base_img_key], cfg)
                 
                 progress_logger.success("Posted to social media", f"Tweet ID: {tweet_id}")
                 
@@ -637,7 +606,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         # Step 6: Create collage and select winner
         progress_logger.step("Creating collage and selecting winner")
         date_str = today_local()
-        slug = storage.paths.make_slug(category, base_prompt)
+        slug = storage.paths.make_slug(theme_hint, base_prompt)
         out_dir = storage.paths.output_dir(date_str, slug)
         logger.debug(f"Output directory: {out_dir}")
         
@@ -703,7 +672,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         ph = phash.phash_hex(wallpapers[next(iter(wallpapers))])
         
         meta = {
-            "category": category,
+            "theme_hint": theme_hint,
             "base_prompt": base_prompt,
             "variant_prompt": winner["prompt"],
             "provider": winner["provider"],
@@ -725,9 +694,9 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         storage.fs.save_meta(out_dir, meta)
         
         manifest.append({
-            "id": f"{date_str}_{category}_{slug}",
+            "id": f"{date_str}_{theme_hint}_{slug}",
             "date": date_str,
-            "category": category,
+            "theme_hint": theme_hint,
             "files": public_paths,
             "tweet_id": None,
             "phash": ph
@@ -758,12 +727,12 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             logger.info(f"Tweet posted successfully, ID: {tweet_id}")
             
             # Update records with tweet ID
-            manifest.update_tweet_id(f"{date_str}_{category}_{slug}", tweet_id)
+            manifest.update_tweet_id(f"{date_str}_{theme_hint}_{slug}", tweet_id)
             meta["tweet_id"] = tweet_id
             storage.fs.save_meta(out_dir, meta)
             
             tweet_link = tweet_url(tweet_id)
-            alerts.webhook.send_success(category, meta["model"], tweet_link, public_paths[base_img_key], cfg)
+            alerts.webhook.send_success(theme_hint, meta["model"], tweet_link, public_paths[base_img_key], cfg)
             
             progress_logger.success("Posted to social media", f"Tweet ID: {tweet_id}")
             

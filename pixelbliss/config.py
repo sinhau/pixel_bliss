@@ -70,10 +70,6 @@ class Discord(BaseModel):
 
 class Config(BaseModel):
     timezone: str = "America/Los_Angeles"
-    # Legacy categories kept for category selection in run_once.py
-    categories: List[str] = ["sci-fi", "tech", "mystic", "geometry", "nature", "neo-noir", "watercolor", "cosmic-minimal"]
-    category_selection_method: str = "time"
-    rotation_minutes: int = 180
     prompt_generation: PromptGeneration = Field(default_factory=PromptGeneration)
     image_generation: ImageGeneration = Field(default_factory=ImageGeneration)
     ranking: Ranking = Field(default_factory=Ranking)
