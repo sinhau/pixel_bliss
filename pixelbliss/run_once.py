@@ -441,11 +441,11 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
                 progress_logger.finish_pipeline(success=True)
                 return 0
             elif selected is None:
-                # Fallback if no response: pick first generated candidate
-                winner = candidates[0]
-                timeout_fallback = True
-                user_rank = 1
-                logger.info("No Discord selection received, using first candidate as fallback")
+                # No response received (timeout) - end pipeline without posting or saving
+                logger.info("No Discord selection received within timeout - ending pipeline")
+                progress_logger.success("No user selection received - pipeline ended")
+                progress_logger.finish_pipeline(success=True)
+                return 0
             else:
                 # Your pick is authoritative
                 winner = selected
