@@ -21,7 +21,7 @@ def test_fal_upscale():
         print("Testing FAL upscaling...")
         print(f"Original image size: {test_image.size}")
         
-        # Test FAL upscaling
+        # Test FAL upscaling - now returns Image.Image directly or raises exception
         upscaled_image = upscale(
             image=test_image,
             provider="fal",
@@ -29,15 +29,12 @@ def test_fal_upscale():
             factor=2
         )
         
-        if upscaled_image:
-            print(f"Upscaled image size: {upscaled_image.size}")
-            print("✅ FAL upscaling test passed!")
-            
-            # Save the result for inspection
-            upscaled_image.save("test_upscaled_fal.png")
-            print("Saved upscaled image as test_upscaled_fal.png")
-        else:
-            print("❌ FAL upscaling test failed - no image returned")
+        print(f"Upscaled image size: {upscaled_image.size}")
+        print("✅ FAL upscaling test passed!")
+        
+        # Save the result for inspection
+        upscaled_image.save("test_upscaled_fal.png")
+        print("Saved upscaled image as test_upscaled_fal.png")
             
     except Exception as e:
         print(f"❌ FAL upscaling test failed with error: {e}")
@@ -58,10 +55,8 @@ def test_replicate_upscale():
             factor=2
         )
         
-        if upscaled_image:
-            print("✅ Replicate upscaling worked (unexpected)")
-        else:
-            print("✅ Replicate upscaling failed gracefully as expected")
+        print("✅ Replicate upscaling worked (unexpected)")
+        print(f"Upscaled image size: {upscaled_image.size}")
             
     except Exception as e:
         print(f"✅ Replicate upscaling failed gracefully: {e}")
