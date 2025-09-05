@@ -66,24 +66,31 @@ def post_once():
     base_prompt = prompts.make_base(category, cfg)
     variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
 
-    # C) Generate images - try FAL models first, then Replicate as fallback
+    # C) Generate images - try FAL models with Replicate fallback by index
     candidates = []
     for vp in variant_prompts:
-        # Try FAL models first
         imgres = None
-        for model in cfg.image_generation.model_fal:
-            imgres = providers.base.generate_image(vp, "fal", model, cfg.image_generation.retries_per_image)
-            if imgres:
-                candidates.append({**imgres, "prompt": vp})
-                break
-
-        # If no FAL model worked, try Replicate models
-        if not imgres:
-            for model in cfg.image_generation.model_replicate:
-                imgres = providers.base.generate_image(vp, "replicate", model, cfg.image_generation.retries_per_image)
+        # Loop through models by index, trying FAL first then Replicate fallback for same index
+        for i in range(len(cfg.image_generation.model_fal)):
+            # Try FAL model at index i
+            if i < len(cfg.image_generation.model_fal):
+                fal_model = cfg.image_generation.model_fal[i]
+                imgres = providers.base.generate_image(vp, "fal", fal_model)
                 if imgres:
                     candidates.append({**imgres, "prompt": vp})
                     break
+            
+            # If FAL failed and we have a corresponding Replicate model, try it
+            if not imgres and i < len(cfg.image_generation.model_replicate):
+                replicate_model = cfg.image_generation.model_replicate[i]
+                imgres = providers.base.generate_image(vp, "replicate", replicate_model)
+                if imgres:
+                    candidates.append({**imgres, "prompt": vp})
+                    break
+        
+        # If we still don't have a result after trying all model pairs, continue to next prompt
+        if not imgres:
+            continue
 
     if not candidates:
         alerts.webhook.send_failure("no images produced")
