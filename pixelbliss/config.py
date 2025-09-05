@@ -7,8 +7,7 @@ from pathlib import Path
 class PromptGeneration(BaseModel):
     provider: str = "openai"
     model: str = "gpt-5"
-    temperature: float = 0.8
-    max_tokens: int = 400
+    num_prompt_variants: int = 3
 
 class ImageGeneration(BaseModel):
     provider_order: List[str] = ["fal", "replicate"]
