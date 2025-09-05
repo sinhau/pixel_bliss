@@ -21,9 +21,9 @@ async def ask_user_to_select_raw(candidates: List[Dict], cfg, logger: logging.Lo
     Returns:
         Optional[Dict]: The selected candidate dict, or None on timeout/error
     """
-    # Get Discord configuration
-    token = getattr(cfg.discord, 'bot_token', '')
-    user_id_str = getattr(cfg.discord, 'user_id', '')
+    # Get Discord configuration - access environment variables directly
+    token = os.getenv(cfg.discord.bot_token_env, '')
+    user_id_str = os.getenv(cfg.discord.user_id_env, '')
     timeout = cfg.discord.timeout_sec
     batch_size = cfg.discord.batch_size
     

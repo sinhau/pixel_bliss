@@ -107,11 +107,4 @@ def load_config(config_path: str = "config.yaml") -> Config:
         env_var = data['alerts']['webhook_url_env']
         data['alerts']['webhook_url'] = os.getenv(env_var, "")
 
-    # Load Discord environment variables
-    if 'discord' in data:
-        bot_token_env = data['discord'].get('bot_token_env', 'DISCORD_BOT_TOKEN')
-        user_id_env = data['discord'].get('user_id_env', 'DISCORD_USER_ID')
-        data['discord']['bot_token'] = os.getenv(bot_token_env, "")
-        data['discord']['user_id'] = os.getenv(user_id_env, "")
-
     return Config(**data)
