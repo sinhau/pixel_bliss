@@ -94,6 +94,8 @@ prompt_generation:
   num_prompt_variants: 1    # Number of prompt variations to generate from each base prompt (1 base -> 5 variants)
   async_enabled: true       # Enable parallel processing of prompt generation (faster generation)
   max_concurrency: 10     # Optional limit on concurrent API requests (null = no limit, use integer to limit)
+  use_knobs: true           # Use new diverse knobs system instead of legacy categories/art_styles
+  variant_strategy: "single"  # "single" = vary one knob (maintains identity), "multiple" = vary all knobs (more diversity)
   # System/style rules enforced at runtime: no real people/logos/NSFW content, includes negative prompts, aesthetic style hints
 
 image_generation:
