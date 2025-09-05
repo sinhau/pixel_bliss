@@ -1,8 +1,47 @@
 # Timezone for date/time operations and category rotation scheduling
 timezone: "America/Los_Angeles"
 
-# List of image categories/themes to rotate through - determines the style and subject matter of generated images
-categories: [ "neo-noir", "sci-fi", "tech", "mystic", "geometry", "nature", "watercolor", "cosmic-minimal" ]
+# Comprehensive list of image categories/themes organized by genre - determines the subject matter and thematic content for generated images, rotated automatically based on rotation_minutes
+categories: [
+    # Cinematic & Atmosphere
+    "neo-noir", "film-noir", "cyberpunk", "retrowave", "synthwave", "vaporwave",
+    "dreamlike", "ethereal", "psychedelic", "surreal", "dystopian", "utopian",
+    "cinematic-still", "analog-film", "hdr-photography",
+
+    # Sci-Fi & Futuristic
+    "sci-fi", "space-opera", "futurism", "tech", "ai-fusion", "post-apocalyptic",
+    "mecha", "biomechanical", "robotic", "cyborg", "space-colony", "time-travel",
+
+    # Fantasy & Mystic
+    "mystic", "dark-fantasy", "fairytale", "mythology", "arcane-symbols",
+    "steampunk", "dieselpunk", "solarpunk", "magical-realism", "eldritch",
+    "alchemy", "dreamscape",
+
+    # Nature & Environment
+    "nature", "cosmic-minimal", "landscape", "underwater", "forest", "desert",
+    "mountains", "volcano", "tundra", "aurora", "celestial", "bioluminescence",
+    "bonsai", "flora-botanical", "microcosm",
+
+    # Abstract & Geometry
+    "geometry", "fractal", "low-poly", "op-art", "sacred-geometry",
+    "generative-art", "data-visualization", "kaleidoscopic", "mandala",
+    "abstract-expressionism", "glitch-art", "minimalism",
+
+    # Cultural & Historical
+    "renaissance", "baroque", "art-nouveau", "art-deco", "bauhaus",
+    "ukiyo-e", "byzantine", "tribal-patterns", "indigenous-art",
+    "cave-painting", "medieval-illumination", "gothic",
+
+    # Artistic Mediums
+    "watercolor", "oil-painting", "acrylic", "ink-wash", "charcoal",
+    "line-art", "vector-art", "pixel-art", "collage", "mixed-media",
+    "graffiti", "street-art", "stained-glass", "mosaic",
+
+    # Pop & Contemporary
+    "pop-art", "comic-book", "anime", "manga", "chibi", "graphic-novel",
+    "conceptual-art", "installation-art", "fashion-editorial", "album-cover",
+    "poster-design", "tattoo-art", "toy-design"
+]
 
 # Comprehensive list of art styles that can be applied to generated images - used by the prompt generation system to add artistic style variations to image prompts
 art_styles: [
