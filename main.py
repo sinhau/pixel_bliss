@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 import sys
 import argparse
+from dotenv import load_dotenv
 from pixelbliss.run_once import post_once
+
+# Load environment variables from .env file
+load_dotenv()
 
 def main():
     parser = argparse.ArgumentParser(description="PixelBliss CLI")
