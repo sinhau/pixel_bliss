@@ -150,9 +150,12 @@ def fs_abs(path: str) -> str:
         path: Relative path to convert.
         
     Returns:
-        str: Absolute path (currently just returns the input path).
+        str: Absolute path with leading slash removed if present.
     """
-    return path  # Assuming relative to web root
+    # Remove leading slash if present to make it a proper relative path
+    if path.startswith('/'):
+        return path[1:]
+    return path
 
 async def generate_for_variant(variant_prompt: str, cfg: Config, semaphore: Optional[asyncio.Semaphore] = None, progress_logger=None, variant_index: int = 0) -> List[Dict[str, Any]]:
     """
@@ -525,11 +528,12 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
 
             # Step 10: Post to social media
             progress_logger.step("Posting to social media")
-            first_key = "phone_9x16_2k" if "phone_9x16_2k" in public_paths else next(iter(public_paths))
-            logger.info(f"Posting image variant: {first_key}")
+            # Use base image instead of wallpaper variants for social media posting
+            base_img_key = "base_img"
+            logger.info(f"Posting base image: {base_img_key}")
             
             try:
-                media_ids = twitter.client.upload_media([fs_abs(public_paths[first_key])])
+                media_ids = twitter.client.upload_media([fs_abs(public_paths[base_img_key])])
                 logger.debug(f"Media uploaded, ID: {media_ids[0]}")
                 
                 twitter.client.set_alt_text(media_ids[0], alt)
@@ -544,7 +548,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
                 storage.fs.save_meta(out_dir, meta)
                 
                 tweet_link = tweet_url(tweet_id)
-                alerts.webhook.send_success(category, meta["model"], tweet_link, public_paths[first_key], cfg)
+                alerts.webhook.send_success(category, meta["model"], tweet_link, public_paths[base_img_key], cfg)
                 
                 progress_logger.success("Posted to social media", f"Tweet ID: {tweet_id}")
                 
@@ -739,11 +743,12 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
 
         # Step 10: Post to social media
         progress_logger.step("Posting to social media")
-        first_key = "phone_9x16_2k" if "phone_9x16_2k" in public_paths else next(iter(public_paths))
-        logger.info(f"Posting image variant: {first_key}")
+        # Use base image instead of wallpaper variants for social media posting
+        base_img_key = "base_img"
+        logger.info(f"Posting base image: {base_img_key}")
         
         try:
-            media_ids = twitter.client.upload_media([fs_abs(public_paths[first_key])])
+            media_ids = twitter.client.upload_media([fs_abs(public_paths[base_img_key])])
             logger.debug(f"Media uploaded, ID: {media_ids[0]}")
             
             twitter.client.set_alt_text(media_ids[0], alt)
@@ -758,7 +763,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             storage.fs.save_meta(out_dir, meta)
             
             tweet_link = tweet_url(tweet_id)
-            alerts.webhook.send_success(category, meta["model"], tweet_link, public_paths[first_key], cfg)
+            alerts.webhook.send_success(category, meta["model"], tweet_link, public_paths[base_img_key], cfg)
             
             progress_logger.success("Posted to social media", f"Tweet ID: {tweet_id}")
             

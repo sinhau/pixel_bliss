@@ -589,7 +589,7 @@ class TestPostOnce:
             
             mock_variants_wall.return_value = {"desktop": mock_image}
             mock_alt.return_value = "alt text"
-            mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+            mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg", "base_img": "/path/to/base_img.png"}
             mock_iso.return_value = "2024-01-01T12:00:00"
             
             # Mock Twitter operations
@@ -1513,7 +1513,7 @@ class TestAsyncPromptGeneration:
             
             mock_variants_wall.return_value = {"desktop": mock_upscaled_image}
             mock_alt.return_value = "alt text"
-            mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+            mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg", "base_img": "/path/to/base_img.png"}
             mock_iso.return_value = "2024-01-01T12:00:00"
             
             # Mock Twitter operations
@@ -1603,7 +1603,7 @@ class TestAsyncPromptGeneration:
         mock_phash.return_value = "abc123"
         mock_variants_wall.return_value = {"desktop": mock_image}
         mock_alt.return_value = "alt text"
-        mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+        mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg", "base_img": "/path/to/base_img.png"}
         mock_iso.return_value = "2024-01-01T12:00:00"
         
         # Mock Twitter operations to fail
