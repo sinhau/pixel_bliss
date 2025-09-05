@@ -50,7 +50,7 @@ class TestQualityFunctions:
         # Create a sharp image (checkerboard pattern)
         sharp_array = np.zeros((100, 100), dtype=np.uint8)
         sharp_array[::10, ::10] = 255  # Create high-frequency pattern
-        sharp_img = Image.fromarray(sharp_array, mode='L').convert('RGB')
+        sharp_img = Image.fromarray(sharp_array).convert('RGB')
         
         passes, score = quality.sharpness_score(sharp_img, sharpness_min=50.0, sharpness_good=200.0)
         assert passes == True
@@ -72,13 +72,13 @@ class TestQualityFunctions:
         
         # Overexposed image (mostly white)
         bright_array = np.full((100, 100, 3), 255, dtype=np.uint8)
-        bright_img = Image.fromarray(bright_array, mode='RGB')
+        bright_img = Image.fromarray(bright_array)
         passes_bright, score_bright = quality.exposure_score(bright_img, clip_max=0.1)
         assert passes_bright == False  # Should fail clipping test
         
         # Underexposed image (mostly black)
         dark_array = np.full((100, 100, 3), 0, dtype=np.uint8)
-        dark_img = Image.fromarray(dark_array, mode='RGB')
+        dark_img = Image.fromarray(dark_array)
         passes_dark, score_dark = quality.exposure_score(dark_img, clip_max=0.1)
         assert passes_dark == False  # Should fail clipping test
     
@@ -99,7 +99,7 @@ class TestQualityFunctions:
         good_array = np.random.randint(50, 200, (800, 600, 3), dtype=np.uint8)
         # Add some high-frequency content for sharpness
         good_array[::10, ::10] = 255
-        good_img = Image.fromarray(good_array, mode='RGB')
+        good_img = Image.fromarray(good_array)
         
         passes, score = quality.evaluate_local(good_img, mock_cfg)
         assert passes == True
@@ -163,7 +163,7 @@ class TestQualityIntegration:
         sharp_array = np.zeros((200, 200), dtype=np.uint8)
         for i in range(0, 200, 4):
             sharp_array[i:i+2, :] = 255  # Create stripes
-        sharp_img = Image.fromarray(sharp_array, mode='L').convert('RGB')
+        sharp_img = Image.fromarray(sharp_array).convert('RGB')
         
         # Smooth image
         smooth_img = Image.new('RGB', (200, 200), color=(128, 128, 128))
