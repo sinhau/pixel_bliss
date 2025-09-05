@@ -1,58 +1,62 @@
+# Timezone for date/time operations and category rotation scheduling
 timezone: "America/Los_Angeles"
 
+# List of image categories/themes to rotate through - determines the style and subject matter of generated images
 categories: [ "neo-noir", "sci-fi", "tech", "mystic", "geometry", "nature", "watercolor", "cosmic-minimal" ]
 
-rotation_minutes: 180   # category index = floor(now_min / rotation_minutes) % len(categories)
+# Minutes each category stays active before rotating to next - category index = floor(now_min / rotation_minutes) % len(categories)
+rotation_minutes: 180
 
 prompt_generation:
-  provider: "openai"        # openai | dummy
-  model: "gpt-5"            # default model for base prompt, variants, and alt text
-  num_prompt_variants: 3        # 1 base -> 3 variants
-  # system/style rules enforced at runtime (no real people/logos/NSFW, negative prompts, style hints)
+  provider: "openai"        # Prompt generation provider: "openai" for GPT models, "dummy" for testing
+  model: "gpt-5"            # AI model for generating base prompts, variants, and alt text
+  num_prompt_variants: 3    # Number of prompt variations to generate from each base prompt (1 base -> 3 variants)
+  # System/style rules enforced at runtime: no real people/logos/NSFW content, includes negative prompts, aesthetic style hints
 
 image_generation:
-  provider_order: ["fal", "replicate"]
-  model_fal: ["fal-ai/gemini-25-flash-image", "fal-ai/bytedance/seedream/v3/text-to-image", "fal-ai/imagen4/preview/ultra"]     # list of models to use
-  model_replicate: ["google/gemini-2.5-flash-image", "bytedance/seedream-3", "google/imagen-4-ultra"]   # list of models to use
-  retries_per_image: 2
+  provider_order: ["fal", "replicate"]  # Order to try image generation providers - FAL first, then Replicate as fallback
+  model_fal: ["fal-ai/gemini-25-flash-image", "fal-ai/bytedance/seedream/v3/text-to-image", "fal-ai/imagen4/preview/ultra"]     # FAL AI models to use for image generation
+  model_replicate: ["google/gemini-2.5-flash-image", "bytedance/seedream-3", "google/imagen-4-ultra"]   # Replicate models as fallback options
+  retries_per_image: 2      # Number of retry attempts per image generation request before giving up
 
 ranking:
-  # final = w_brightness * B_norm + w_entropy * H_norm + w_aesthetic * Aesthetic
-  w_brightness: 0.25
-  w_entropy: 0.25
-  w_aesthetic: 0.50
+  # Image scoring weights for final ranking: final_score = w_brightness * brightness_norm + w_entropy * entropy_norm + w_aesthetic * aesthetic_score
+  w_brightness: 0.25        # Weight for normalized brightness score (0-1)
+  w_entropy: 0.25           # Weight for normalized entropy/complexity score (0-1) 
+  w_aesthetic: 0.50         # Weight for aesthetic quality score (0-1)
 
-  # sanity floors (discard if violated)
-  entropy_min: 3.5
-  brightness_min: 10
-  brightness_max: 245
+  # Quality thresholds - images failing these are discarded before ranking
+  entropy_min: 3.5          # Minimum entropy (visual complexity) - filters out overly simple/flat images
+  brightness_min: 10        # Minimum average brightness (0-255) - filters out too-dark images
+  brightness_max: 245       # Maximum average brightness (0-255) - filters out overexposed images
 
-  # dedupe against recent manifest pHashes
-  phash_distance_min: 6
+  # Duplicate detection using perceptual hashing
+  phash_distance_min: 6     # Minimum Hamming distance between perceptual hashes to avoid near-duplicates
 
 aesthetic_scoring:
-  provider: "replicate"
-  model: "methexis-inc/img2aestheticscore:ec5029694b29e51fa9e5b794d73ba8103569d5d3ef3d60b7a8fdef18b9997b90"  # Example aesthetic scoring model
-  score_min: 1.0    # Minimum expected score from the model
-  score_max: 10.0    # Maximum expected score from the model
+  provider: "replicate"     # Provider for aesthetic quality scoring
+  model: "methexis-inc/img2aestheticscore:ec5029694b29e51fa9e5b794d73ba8103569d5d3ef3d60b7a8fdef18b9997b90"  # Aesthetic scoring model endpoint
+  score_min: 1.0            # Minimum expected aesthetic score from the model (for normalization)
+  score_max: 10.0           # Maximum expected aesthetic score from the model (for normalization)
 
 upscale:
-  enabled: true
-  provider: "fal"          # or "fal"
-  model: "fal-ai/esrgan"        # pick your exact model
-  factor: 2
+  enabled: true             # Whether to upscale winning images before creating wallpaper variants
+  provider: "fal"           # Upscaling provider: "fal", "replicate", or "dummy_local" for testing
+  model: "fal-ai/esrgan"    # Specific upscaling model to use (e.g., Real-ESRGAN variants)
+  factor: 2                 # Upscaling factor (2x, 4x, etc.)
 
-# output sizes — edit this list to change wallpaper variants without code changes
+# Output wallpaper variants - edit this list to change sizes without code changes
+# Each variant specifies: name (for file naming), width, and height in pixels
 wallpaper_variants:
-  - {name: "square_1x1_2k",        w: 2048, h: 2048}
-  - {name: "phone_9x16_2k",        w: 1125, h: 2000}
-  - {name: "phone_20x9_3.2k",      w: 1440, h: 3200}
-  - {name: "desktop_16x9_1080p",   w: 1920, h: 1080}
-  - {name: "desktop_16x9_1440p",   w: 2560, h: 1440}
-  - {name: "desktop_16x9_4k",      w: 3840, h: 2160}
-  - {name: "desktop_16x10_1600p",  w: 2560, h: 1600}
-  - {name: "ultrawide_21x9",       w: 3440, h: 1440}
+  - {name: "square_1x1_2k",        w: 2048, h: 2048}    # Square format for social media, avatars
+  - {name: "phone_9x16_2k",        w: 1125, h: 2000}    # Portrait phone wallpaper (iPhone-style)
+  - {name: "phone_20x9_3.2k",      w: 1440, h: 3200}    # Tall phone wallpaper (Android ultra-wide)
+  - {name: "desktop_16x9_1080p",   w: 1920, h: 1080}    # Standard desktop 1080p
+  - {name: "desktop_16x9_1440p",   w: 2560, h: 1440}    # Desktop 1440p (2K)
+  - {name: "desktop_16x9_4k",      w: 3840, h: 2160}    # Desktop 4K resolution
+  - {name: "desktop_16x10_1600p",  w: 2560, h: 1600}    # Desktop 16:10 aspect ratio
+  - {name: "ultrawide_21x9",       w: 3440, h: 1440}    # Ultrawide monitor format
 
 alerts:
-  enabled: true
-  webhook_url_env: "ALERT_WEBHOOK_URL"
+  enabled: true             # Whether to send webhook notifications for successes/failures
+  webhook_url_env: "ALERT_WEBHOOK_URL"  # Environment variable name containing the webhook URL (e.g., Discord, Slack)
