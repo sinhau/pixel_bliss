@@ -40,6 +40,51 @@ PixelBliss is a stateless CLI tool that automates posting highly aesthetic image
 - `python main.py dry-run`: Run without posting to Twitter.
 - `python main.py repair-manifest`: Rebuild manifest from outputs.
 
+## Testing
+
+PixelBliss includes a comprehensive unit testing framework using pytest.
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest tests/
+
+# Run tests with verbose output
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_config.py -v
+
+# Run specific test class or method
+pytest tests/test_run_once.py::TestCategorySelection::test_category_by_time_basic -v
+```
+
+### Test Coverage
+
+```bash
+# Run tests with coverage report
+pytest tests/ --cov=pixelbliss --cov-report=term-missing
+
+# Generate HTML coverage report
+pytest tests/ --cov=pixelbliss --cov-report=html
+
+# View HTML report (opens in browser)
+open htmlcov/index.html
+```
+
+### Test Structure
+
+The test suite covers:
+- Configuration loading and validation
+- Category selection algorithms
+- Image scoring and ranking logic
+- Provider interface functionality
+- Image processing metrics
+- Utility functions
+
+All external dependencies (APIs, file system, network calls) are mocked to ensure fast, reliable, and isolated unit tests.
+
 ## Cron Example
 
 ```
