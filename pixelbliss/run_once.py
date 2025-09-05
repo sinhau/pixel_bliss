@@ -100,8 +100,8 @@ def post_once():
         if image_url:
             a = aesthetic.aesthetic(image_url, cfg)
         else:
-            # Fallback to PIL image if no URL available
-            a = aesthetic.aesthetic(c["image"], cfg)
+            # No URL available, use default score
+            a = 0.5
         c["brightness"] = b
         c["entropy"] = e
         c["aesthetic"] = a
