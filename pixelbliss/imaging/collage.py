@@ -74,10 +74,11 @@ def create_candidates_collage(candidates: List[Dict], max_width: int = 1920, max
             aesthetic_score = candidate.get('aesthetic', 0)
             brightness_score = candidate.get('brightness', 0)
             entropy_score = candidate.get('entropy', 0)
+            local_quality_score = candidate.get('local_quality', 0)
             
             # Create score text
             score_text = f"#{idx + 1} Final: {final_score:.3f}"
-            detail_text = f"A:{aesthetic_score:.2f} B:{brightness_score:.1f} E:{entropy_score:.2f}"
+            detail_text = f"A:{aesthetic_score:.2f} B:{brightness_score:.1f} E:{entropy_score:.2f} LQ:{local_quality_score:.2f}"
             
             # Position text at bottom of cell
             text_y = y + img_height - 45
