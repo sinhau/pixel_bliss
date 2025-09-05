@@ -9,6 +9,17 @@ from .config import Config
 import pytz
 
 def category_by_time(categories: List[str], rotation_minutes: int, now=None):
+    """
+    Select a category based on the current time using rotation.
+    
+    Args:
+        categories: List of available categories to rotate through.
+        rotation_minutes: Number of minutes each category should be active.
+        now: Optional datetime to use instead of current time. Defaults to None.
+        
+    Returns:
+        str: The category that should be active at the given time.
+    """
     if now is None:
         tz = pytz.timezone("America/Los_Angeles")  # From config
         now = datetime.datetime.now(tz)
@@ -16,6 +27,18 @@ def category_by_time(categories: List[str], rotation_minutes: int, now=None):
     return categories[idx]
 
 def try_in_order(prompt: str, providers: List[str], models: List[str], retries: int) -> Optional[ImageResult]:
+    """
+    Try to generate an image using providers and models in order until one succeeds.
+    
+    Args:
+        prompt: The text prompt for image generation.
+        providers: List of provider names to try in order.
+        models: List of model names corresponding to each provider.
+        retries: Number of retries per provider/model combination.
+        
+    Returns:
+        Optional[ImageResult]: The first successful image result, or None if all fail.
+    """
     for prov, mod in zip(providers, models):
         result = providers.base.generate_image(prompt, prov, mod, retries)
         if result:
@@ -23,6 +46,16 @@ def try_in_order(prompt: str, providers: List[str], models: List[str], retries: 
     return None
 
 def normalize_and_rescore(items: List[Dict], cfg: Config) -> List[Dict]:
+    """
+    Normalize brightness and entropy scores and calculate final ranking scores.
+    
+    Args:
+        items: List of image candidates with brightness, entropy, and aesthetic scores.
+        cfg: Configuration object containing ranking weights.
+        
+    Returns:
+        List[Dict]: Items with added normalized scores and final ranking score.
+    """
     if not items:
         return items
     brights = [i['brightness'] for i in items]
@@ -43,20 +76,69 @@ def normalize_and_rescore(items: List[Dict], cfg: Config) -> List[Dict]:
     return items
 
 def today_local() -> str:
+    """
+    Get today's date in local timezone as a string.
+    
+    Returns:
+        str: Today's date in YYYY-MM-DD format.
+    """
     tz = pytz.timezone("America/Los_Angeles")
     return datetime.datetime.now(tz).strftime("%Y-%m-%d")
 
 def now_iso() -> str:
+    """
+    Get current timestamp in local timezone as ISO format string.
+    
+    Returns:
+        str: Current timestamp in ISO format.
+    """
     tz = pytz.timezone("America/Los_Angeles")
     return datetime.datetime.now(tz).isoformat()
 
 def tweet_url(tweet_id: str) -> str:
+    """
+    Generate a Twitter/X URL from a tweet ID.
+    
+    Args:
+        tweet_id: The ID of the tweet.
+        
+    Returns:
+        str: Full URL to the tweet.
+    """
     return f"https://x.com/user/status/{tweet_id}"  # Replace user with actual
 
 def fs_abs(path: str) -> str:
+    """
+    Convert a relative path to an absolute filesystem path.
+    
+    Args:
+        path: Relative path to convert.
+        
+    Returns:
+        str: Absolute path (currently just returns the input path).
+    """
     return path  # Assuming relative to web root
 
 def post_once(dry_run: bool = False):
+    """
+    Execute the complete pipeline to generate, rank, and post a wallpaper image.
+    
+    This function orchestrates the entire process:
+    1. Select category based on time rotation
+    2. Generate base prompt and variants
+    3. Generate images using configured providers
+    4. Score and rank candidates
+    5. Select winner avoiding duplicates
+    6. Upscale and create wallpaper variants
+    7. Save files and metadata
+    8. Post to social media (unless dry_run=True)
+    
+    Args:
+        dry_run: If True, skip posting to social media. Defaults to False.
+        
+    Returns:
+        int: Exit code (0 for success, 1 for failure).
+    """
     cfg = config.load_config()
 
     # A) Stateless category selection

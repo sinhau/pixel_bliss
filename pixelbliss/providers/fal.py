@@ -10,6 +10,20 @@ config = load_config()
 
 @retry(stop=stop_after_attempt(config.image_generation.retries_per_image), wait=wait_exponential(multiplier=1, min=4, max=10))
 def _generate_fal_image_with_retry(prompt: str, model: str) -> ImageResult:
+    """
+    Generate an image using FAL API with automatic retry logic.
+    
+    Args:
+        prompt: Text prompt for image generation.
+        model: FAL model identifier to use.
+        
+    Returns:
+        ImageResult: Dictionary containing the generated image and metadata.
+        
+    Raises:
+        ValueError: If no images are returned from the API.
+        requests.HTTPError: If image download fails.
+    """
     # Use fal_client.run for synchronous image generation
     # Based on FAL API docs for Imagen 4 Ultra
     result = fal_client.run(
@@ -43,6 +57,16 @@ def _generate_fal_image_with_retry(prompt: str, model: str) -> ImageResult:
     }
 
 def generate_fal_image(prompt: str, model: str) -> Optional[ImageResult]:
+    """
+    Generate an image using FAL API with error handling.
+    
+    Args:
+        prompt: Text prompt for image generation.
+        model: FAL model identifier to use.
+        
+    Returns:
+        Optional[ImageResult]: Dictionary containing image and metadata, or None if failed.
+    """
     try:
         return _generate_fal_image_with_retry(prompt, model)
     except Exception as e:

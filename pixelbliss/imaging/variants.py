@@ -3,6 +3,20 @@ from typing import Dict, List
 from ..config import WallpaperVariant
 
 def crop_pad(image: Image.Image, w: int, h: int) -> Image.Image:
+    """
+    Resize an image to exact dimensions by cropping and scaling.
+    
+    The image is first cropped to match the target aspect ratio, then resized
+    to the exact dimensions using high-quality LANCZOS resampling.
+    
+    Args:
+        image: PIL Image object to resize.
+        w: Target width in pixels.
+        h: Target height in pixels.
+        
+    Returns:
+        Image.Image: Resized image with exact dimensions.
+    """
     # Resize image to fit w x h, cropping or padding as needed
     img_ratio = image.width / image.height
     target_ratio = w / h
@@ -22,6 +36,16 @@ def crop_pad(image: Image.Image, w: int, h: int) -> Image.Image:
     return image.resize((w, h), Image.LANCZOS)
 
 def make_wallpaper_variants(image: Image.Image, variants_cfg: List[WallpaperVariant]) -> Dict[str, Image.Image]:
+    """
+    Create multiple wallpaper variants from a single image.
+    
+    Args:
+        image: Source PIL Image object to create variants from.
+        variants_cfg: List of WallpaperVariant configurations specifying dimensions.
+        
+    Returns:
+        Dict[str, Image.Image]: Dictionary mapping variant names to resized images.
+    """
     variants = {}
     for variant in variants_cfg:
         variants[variant.name] = crop_pad(image, variant.w, variant.h)

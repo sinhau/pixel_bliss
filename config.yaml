@@ -1,6 +1,6 @@
 timezone: "America/Los_Angeles"
 
-categories: [ "sci-fi", "tech", "mystic", "geometry", "nature", "neo-noir", "watercolor", "cosmic-minimal" ]
+categories: [ "neo-noir", "sci-fi", "tech", "mystic", "geometry", "nature", "watercolor", "cosmic-minimal" ]
 
 rotation_minutes: 180   # category index = floor(now_min / rotation_minutes) % len(categories)
 

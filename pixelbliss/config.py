@@ -58,6 +58,18 @@ class Config(BaseModel):
     alerts: Alerts = Field(default_factory=Alerts)
 
 def load_config(config_path: str = "config.yaml") -> Config:
+    """
+    Load configuration from a YAML file and return a Config object.
+    
+    Args:
+        config_path: Path to the YAML configuration file. Defaults to "config.yaml".
+        
+    Returns:
+        Config: Parsed configuration object with all settings.
+        
+    Raises:
+        FileNotFoundError: If the configuration file doesn't exist.
+    """
     config_file = Path(config_path)
     if not config_file.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
