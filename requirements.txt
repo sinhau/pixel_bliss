@@ -1,0 +1,11 @@
+requests
+python-dotenv
+pydantic
+Pillow
+imagehash
+tenacity
+openai
+tweepy
+replicate
+pytz
+# fal_client  # hypothetical, assume installed separately

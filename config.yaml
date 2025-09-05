@@ -1,0 +1,55 @@
+timezone: "America/Los_Angeles"
+
+categories: [ "sci-fi", "tech", "mystic", "geometry", "nature", "neo-noir", "watercolor", "cosmic-minimal" ]
+
+rotation_minutes: 180   # category index = floor(now_min / rotation_minutes) % len(categories)
+
+prompt_generation:
+  provider: "openai"        # openai | dummy
+  model: "gpt-5"            # default model for base prompt, variants, and alt text
+  temperature: 0.8
+  max_tokens: 400
+  # system/style rules enforced at runtime (no real people/logos/NSFW, negative prompts, style hints)
+
+generation:
+  num_prompt_variants: 3        # 1 base -> 3 variants
+  images_per_variant: 3         # 3 images per variant -> total 9
+  provider_order: ["fal", "replicate"]
+  model_fal: "black-forest-labs/flux-1.1"     # example id
+  model_replicate: "black-forest-labs/flux"   # example id
+  retries_per_image: 2
+
+ranking:
+  # final = w_brightness * B_norm + w_entropy * H_norm + w_aesthetic * Aesthetic
+  w_brightness: 0.25
+  w_entropy: 0.25
+  w_aesthetic: 0.50
+
+  # sanity floors (discard if violated)
+  entropy_min: 3.5
+  brightness_min: 10
+  brightness_max: 245
+
+  # dedupe against recent manifest pHashes
+  phash_distance_min: 6
+
+upscale:
+  enabled: true
+  provider: "replicate"          # or "fal"
+  model: "real-esrgan-4x"        # pick your exact model
+  factor: 2
+
+# output sizes — edit this list to change wallpaper variants without code changes
+wallpaper_variants:
+  - {name: "square_1x1_2k",        w: 2048, h: 2048}
+  - {name: "phone_9x16_2k",        w: 1125, h: 2000}
+  - {name: "phone_20x9_3.2k",      w: 1440, h: 3200}
+  - {name: "desktop_16x9_1080p",   w: 1920, h: 1080}
+  - {name: "desktop_16x9_1440p",   w: 2560, h: 1440}
+  - {name: "desktop_16x9_4k",      w: 3840, h: 2160}
+  - {name: "desktop_16x10_1600p",  w: 2560, h: 1600}
+  - {name: "ultrawide_21x9",       w: 3440, h: 1440}
+
+alerts:
+  enabled: true
+  webhook_url_env: "ALERT_WEBHOOK_URL"
