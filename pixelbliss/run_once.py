@@ -3,7 +3,7 @@ import random
 from typing import List, Dict, Any, Optional
 from . import config, prompts, providers, imaging, scoring, twitter, storage, alerts
 from .providers.base import ImageResult
-from .imaging import metrics, sanity, phash
+from .imaging import metrics, sanity, phash, collage
 from .scoring import aesthetic
 from .storage import manifest
 from .config import Config
@@ -223,6 +223,13 @@ def post_once(dry_run: bool = False):
         return 1
 
     scored = normalize_and_rescore(scored, cfg)
+    
+    # Create collage of all candidates before winner selection
+    date_str = today_local()
+    slug = storage.paths.make_slug(category, base_prompt)
+    out_dir = storage.paths.output_dir(date_str, slug)
+    collage_path = collage.save_collage(scored, out_dir, "candidates_collage.jpg")
+    
     recent_hashes = manifest.load_recent_hashes(limit=200)
 
     winner = None
@@ -248,10 +255,7 @@ def post_once(dry_run: bool = False):
     # Alt text
     alt = prompts.make_alt_text(base_prompt, winner["prompt"], cfg)
 
-    # Save
-    date_str = today_local()
-    slug = storage.paths.make_slug(category, base_prompt)
-    out_dir = storage.paths.output_dir(date_str, slug)
+    # Save (reuse the out_dir from collage creation)
     public_paths = storage.fs.save_images(out_dir, wallpapers)
 
     ph = phash.phash_hex(wallpapers[next(iter(wallpapers))])
