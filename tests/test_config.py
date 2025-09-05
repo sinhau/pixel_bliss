@@ -14,11 +14,9 @@ class TestConfig:
         config = Config()
         
         assert config.timezone == "America/Los_Angeles"
-        assert len(config.categories) == 8
-        assert "sci-fi" in config.categories
-        assert config.category_selection_method == "time"
-        assert config.rotation_minutes == 180
         assert config.prompt_generation.provider == "openai"
+        assert config.prompt_generation.use_knobs is True
+        assert config.prompt_generation.variant_strategy == "single"
         assert config.image_generation.provider_order == ["fal", "replicate"]
         assert config.ranking.w_aesthetic == 0.50
         assert config.upscale.enabled is True
@@ -27,23 +25,26 @@ class TestConfig:
         """Test Config with custom values."""
         config = Config(
             timezone="UTC",
-            categories=["test1", "test2"],
-            rotation_minutes=60
+            prompt_generation={
+                "provider": "dummy",
+                "use_knobs": False,
+                "variant_strategy": "multiple"
+            }
         )
         
         assert config.timezone == "UTC"
-        assert config.categories == ["test1", "test2"]
-        assert config.rotation_minutes == 60
+        assert config.prompt_generation.provider == "dummy"
+        assert config.prompt_generation.use_knobs is False
+        assert config.prompt_generation.variant_strategy == "multiple"
 
     def test_load_config_valid_yaml(self):
         """Test loading configuration from valid YAML file."""
         config_data = {
             "timezone": "UTC",
-            "categories": ["test", "demo"],
-            "rotation_minutes": 120,
             "prompt_generation": {
                 "provider": "openai",
-                "model": "gpt-4"
+                "model": "gpt-4",
+                "use_knobs": True
             }
         }
         
@@ -54,9 +55,8 @@ class TestConfig:
         try:
             config = load_config(temp_path)
             assert config.timezone == "UTC"
-            assert config.categories == ["test", "demo"]
-            assert config.rotation_minutes == 120
             assert config.prompt_generation.model == "gpt-4"
+            assert config.prompt_generation.use_knobs is True
         finally:
             os.unlink(temp_path)
 
@@ -91,7 +91,7 @@ class TestConfig:
     def test_config_validation_invalid_data(self):
         """Test Config validation with invalid data types."""
         with pytest.raises(ValueError):
-            Config(rotation_minutes="invalid")  # Should be int
+            Config(timezone=123)  # Should be string
         
         with pytest.raises(ValueError):
-            Config(categories="not_a_list")  # Should be list
+            Config(wallpaper_variants="not_a_list")  # Should be list

@@ -42,22 +42,31 @@ class TestPromptsKnobs:
             mock_select.assert_called_once_with("nature")
             mock_avoid.assert_called_once()
     
-    def test_make_base_with_knobs_disabled(self):
-        """Test base prompt generation with knobs disabled (fallback to legacy)."""
-        config = Config(
-            prompt_generation=PromptGeneration(
-                provider="dummy",
-                use_knobs=False
-            )
-        )
-        
-        with patch('pixelbliss.prompts.make_base') as mock_make_base:
-            mock_make_base.return_value = "legacy prompt"
+    def test_make_base_with_knobs_without_progress_logger(self):
+        """Test base prompt generation with knobs without progress logger."""
+        with patch('pixelbliss.prompts.KnobSelector.select_base_knobs') as mock_select, \
+             patch('pixelbliss.prompts.KnobSelector.get_avoid_list') as mock_avoid, \
+             patch('pixelbliss.prompts.get_logger') as mock_get_logger:
             
-            result = make_base_with_knobs("nature", config)
+            mock_select.return_value = {
+                "vibe": "serene",
+                "palette": "monochrome powder blue",
+                "light": "high-key airy diffused",
+                "texture": "silky",
+                "composition": "negative space emphasis",
+                "style": "watercolor wash"
+            }
+            mock_avoid.return_value = ["harsh clipping", "noise"]
+            mock_logger = Mock()
+            mock_get_logger.return_value = mock_logger
             
-            assert result == "legacy prompt"
-            mock_make_base.assert_called_once_with("nature", config, None)
+            result = make_base_with_knobs("nature", self.config)
+            
+            assert isinstance(result, str)
+            assert len(result) > 0
+            mock_select.assert_called_once_with("nature")
+            mock_avoid.assert_called_once()
+            mock_logger.info.assert_called()
     
     def test_make_variants_with_knobs_single_strategy(self):
         """Test variant generation with single knob strategy."""
@@ -110,50 +119,30 @@ class TestPromptsKnobs:
             assert mock_select.call_count == k
             mock_avoid.assert_called_once()
     
-    def test_make_variants_with_knobs_disabled(self):
-        """Test variant generation with knobs disabled (fallback to legacy)."""
-        config = Config(
-            prompt_generation=PromptGeneration(
-                provider="dummy",
-                use_knobs=False
-            )
-        )
-        
+    def test_make_variants_with_knobs_without_progress_logger(self):
+        """Test variant generation with knobs without progress logger."""
         base_prompt = "A beautiful landscape"
         k = 2
         
-        with patch('pixelbliss.prompts.make_variants_from_base') as mock_make_variants:
-            mock_make_variants.return_value = ["variant1", "variant2"]
+        with patch('pixelbliss.prompts.KnobSelector.select_single_variant_knob') as mock_select, \
+             patch('pixelbliss.prompts.KnobSelector.get_avoid_list') as mock_avoid, \
+             patch('pixelbliss.prompts.get_logger') as mock_get_logger:
             
-            result = make_variants_with_knobs(base_prompt, k, config)
+            mock_select.side_effect = [
+                {"tone_curve": "high-key airy matte", "color_grade": "neutral balanced", "surface_fx": "crystal clean"},
+                {"tone_curve": "mid-key balanced soft S-curve", "color_grade": "warm gold + muted", "surface_fx": "crystal clean"}
+            ]
+            mock_avoid.return_value = ["watermarks"]
+            mock_logger = Mock()
+            mock_get_logger.return_value = mock_logger
             
-            assert result == ["variant1", "variant2"]
-            mock_make_variants.assert_called_once_with(base_prompt, k, config, None)
-    
-    def test_provider_fallback_for_knobs(self):
-        """Test fallback to legacy methods when provider doesn't support knobs."""
-        # Create a mock provider that doesn't have knobs methods
-        mock_provider = Mock(spec=['make_base', 'make_variants_from_base'])
-        mock_provider.make_base.return_value = "legacy base prompt"
-        mock_provider.make_variants_from_base.return_value = ["legacy variant"]
-        
-        with patch('pixelbliss.prompts.get_provider') as mock_get_provider, \
-             patch('pixelbliss.prompts.KnobSelector.select_base_knobs') as mock_select_base, \
-             patch('pixelbliss.prompts.KnobSelector.get_avoid_list') as mock_avoid:
+            result = make_variants_with_knobs(base_prompt, k, self.config)
             
-            mock_get_provider.return_value = mock_provider
-            mock_select_base.return_value = {"vibe": "serene"}
-            mock_avoid.return_value = ["noise"]
-            
-            # Test base prompt fallback
-            result = make_base_with_knobs("nature", self.config)
-            assert result == "legacy base prompt"
-            mock_provider.make_base.assert_called_once_with("nature")
-            
-            # Test variant prompt fallback
-            result = make_variants_with_knobs("base", 1, self.config)
-            assert result == ["legacy variant"]
-            mock_provider.make_variants_from_base.assert_called_once()
+            assert isinstance(result, list)
+            assert len(result) == k
+            assert mock_select.call_count == k
+            mock_avoid.assert_called_once()
+            mock_logger.info.assert_called()
     
     def test_logging_with_knobs(self):
         """Test that logging works correctly with knobs system."""

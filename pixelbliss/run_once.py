@@ -27,6 +27,19 @@ def generate_theme_hint() -> str:
     ]
     return random.choice(themes)
 
+def select_category(cfg: Config) -> str:
+    """
+    Select a category/theme for prompt generation.
+    This is a compatibility function that wraps generate_theme_hint().
+    
+    Args:
+        cfg: Configuration object (unused, kept for compatibility).
+        
+    Returns:
+        str: A selected theme/category.
+    """
+    return generate_theme_hint()
+
 def try_in_order(prompt: str, provider_names: List[str], models: List[str], retries: int) -> Optional[ImageResult]:
     """
     Try to generate an image using providers and models in order until one succeeds.

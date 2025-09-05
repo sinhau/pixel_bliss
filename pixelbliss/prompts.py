@@ -34,7 +34,7 @@ def make_base(category: str, cfg: Config, progress_logger=None) -> str:
     Generate a base prompt using the knobs system.
     
     Args:
-        category: The category/theme hint for knob selection (optional, for future use).
+        category: The category/theme hint for knob selection.
         cfg: Configuration object containing prompt generation settings.
         progress_logger: Optional progress logger for tracking generation progress.
         
@@ -187,6 +187,57 @@ async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config, p
     Returns:
         list[str]: List of k prompt variations using diverse aesthetic knobs.
     """
-    # Use the synchronous knobs-based variant generation
-    # The knobs system handles its own async generation internally
-    return await asyncio.to_thread(make_variants_with_knobs, base_prompt, k, cfg, progress_logger)
+    logger = get_logger('prompts')
+    provider = get_provider(cfg)
+    
+    # Generate variant knobs for each variation
+    variant_knobs_list = []
+    for _ in range(k):
+        if cfg.prompt_generation.variant_strategy == "single":
+            # Vary only one knob to maintain identity
+            variant_knobs = KnobSelector.select_single_variant_knob()
+        else:
+            # Vary all knobs for maximum diversity
+            variant_knobs = KnobSelector.select_variant_knobs()
+        variant_knobs_list.append(variant_knobs)
+    
+    avoid_list = KnobSelector.get_avoid_list()
+    
+    # Log the start of variant prompt generation
+    if progress_logger:
+        progress_logger.log_variant_prompt_generation_start(k, cfg.prompt_generation.provider, cfg.prompt_generation.model, True)
+    
+    start_time = time.time()
+    try:
+        # Check if provider supports async knobs generation
+        if hasattr(provider, 'make_variants_with_knobs_async'):
+            variant_prompts = await provider.make_variants_with_knobs_async(
+                base_prompt, k, variant_knobs_list, avoid_list, 
+                cfg.prompt_generation.max_concurrency, progress_logger
+            )
+        else:
+            # Fallback to sync method wrapped in asyncio.to_thread
+            variant_prompts = await asyncio.to_thread(
+                provider.make_variants_with_knobs, base_prompt, k, variant_knobs_list, avoid_list
+            )
+        
+        generation_time = time.time() - start_time
+        
+        # Log successful generation
+        if progress_logger:
+            progress_logger.log_variant_prompt_success(variant_prompts, generation_time)
+        else:
+            logger.info(f"Generated {len(variant_prompts)} prompt variants with knobs async in {generation_time:.2f}s")
+            for i, (variant, knobs) in enumerate(zip(variant_prompts, variant_knobs_list), 1):
+                logger.debug(f"Variant {i}: {variant[:60]}... (knobs: {knobs})")
+        
+        return variant_prompts
+        
+    except Exception as e:
+        generation_time = time.time() - start_time
+        error_msg = str(e)
+        if progress_logger:
+            progress_logger.log_variant_prompt_error(error_msg, generation_time)
+        else:
+            logger.error(f"Async knobs-based variant prompt generation failed after {generation_time:.2f}s: {error_msg}")
+        raise

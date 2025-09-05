@@ -4,67 +4,42 @@ import pytz
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock, ANY
 from pixelbliss.run_once import (
-    category_by_time, category_by_random, select_category,
-    normalize_and_rescore, today_local, now_iso, tweet_url, fs_abs,
+    generate_theme_hint, normalize_and_rescore, today_local, now_iso, tweet_url, fs_abs,
     try_in_order, post_once, generate_images_sequential
 )
 
 
-class TestCategorySelection:
-    """Test category selection functions."""
+class TestThemeGeneration:
+    """Test theme generation functions."""
 
-    def test_category_by_time_basic(self, fixed_datetime):
-        """Test time-based category selection."""
-        categories = ["sci-fi", "tech", "nature"]
-        rotation_minutes = 180  # 3 hours per category
+    def test_generate_theme_hint_returns_valid_theme(self):
+        """Test generate_theme_hint returns a valid theme."""
+        result = generate_theme_hint()
         
-        # At 14:30, we're in slot 4 (14*60+30 = 870 minutes, 870//180 = 4)
-        # 4 % 3 = 1, so should select categories[1] = "tech"
-        result = category_by_time(categories, rotation_minutes, fixed_datetime)
-        assert result == "tech"
+        # Should return one of the predefined themes
+        expected_themes = [
+            "abstract", "nature", "cosmic", "geometric", "atmospheric", 
+            "minimal", "organic", "crystalline", "flowing", "luminous"
+        ]
+        assert result in expected_themes
 
-    def test_category_by_time_different_rotation(self, fixed_datetime):
-        """Test time-based selection with different rotation period."""
-        categories = ["a", "b", "c", "d"]
-        rotation_minutes = 60  # 1 hour per category
+    def test_generate_theme_hint_multiple_calls(self):
+        """Test generate_theme_hint returns valid themes across multiple calls."""
+        results = []
+        for _ in range(20):
+            result = generate_theme_hint()
+            results.append(result)
+            
+        # All results should be valid themes
+        expected_themes = [
+            "abstract", "nature", "cosmic", "geometric", "atmospheric", 
+            "minimal", "organic", "crystalline", "flowing", "luminous"
+        ]
+        for result in results:
+            assert result in expected_themes
         
-        # At 14:30, we're in slot 14 (14*60+30 = 870 minutes, 870//60 = 14)
-        # 14 % 4 = 2, so should select categories[2] = "c"
-        result = category_by_time(categories, rotation_minutes, fixed_datetime)
-        assert result == "c"
-
-    def test_category_by_time_single_category(self, fixed_datetime):
-        """Test time-based selection with single category."""
-        categories = ["only"]
-        rotation_minutes = 180
-        
-        result = category_by_time(categories, rotation_minutes, fixed_datetime)
-        assert result == "only"
-
-    def test_category_by_random(self):
-        """Test random category selection."""
-        categories = ["sci-fi", "tech", "nature"]
-        
-        # Run multiple times to ensure it returns valid categories
-        for _ in range(10):
-            result = category_by_random(categories)
-            assert result in categories
-
-    def test_select_category_random_method(self, sample_config):
-        """Test select_category with random method."""
-        sample_config.category_selection_method = "random"
-        
-        result = select_category(sample_config)
-        assert result in sample_config.categories
-
-    def test_select_category_time_method(self, sample_config, fixed_datetime):
-        """Test select_category with time method."""
-        sample_config.category_selection_method = "time"
-        
-        with patch('pixelbliss.run_once.datetime.datetime') as mock_datetime:
-            mock_datetime.now.return_value = fixed_datetime
-            result = select_category(sample_config)
-            assert result in sample_config.categories
+        # Should have some variety (not all the same)
+        assert len(set(results)) > 1
 
 
 class TestNormalizeAndRescore:
@@ -213,18 +188,17 @@ class TestPostOnce:
     """Test post_once function."""
 
     @patch('pixelbliss.run_once.config.load_config')
-    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.generate_theme_hint')
     @patch('pixelbliss.run_once.prompts.make_base')
     @patch('pixelbliss.run_once.prompts.make_variants_from_base')
     @patch('pixelbliss.run_once.providers.base.generate_image')
     @patch('pixelbliss.alerts.webhook.send_failure')
     @pytest.mark.asyncio
     async def test_post_once_no_candidates(self, mock_send_failure, mock_generate, mock_variants, 
-                                   mock_base, mock_category, mock_config):
+                                   mock_base, mock_theme, mock_config):
         """Test post_once when no image candidates are generated."""
         # Setup mocks
         mock_cfg = Mock()
-        mock_cfg.categories = ["test_category"]  # Add categories list
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
@@ -236,7 +210,7 @@ class TestPostOnce:
         mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
-        mock_category.return_value = "test_category"
+        mock_theme.return_value = "abstract"
         mock_base.return_value = "base prompt"
         mock_variants.return_value = ["variant1", "variant2"]
         mock_generate.return_value = None  # No images generated
@@ -977,216 +951,31 @@ class TestAsyncIntegration:
 class TestAsyncPromptGeneration:
     """Test async prompt generation functions."""
 
-    @pytest.mark.asyncio
-    async def test_make_variants_from_base_async_openai(self):
-        """Test async prompt variant generation with OpenAI provider."""
-        from pixelbliss.prompts import make_variants_from_base_async
-        from pixelbliss.config import Config, PromptGeneration
-        
-        # Create config with OpenAI provider
-        cfg = Config()
-        cfg.prompt_generation = PromptGeneration()
-        cfg.prompt_generation.provider = "openai"
-        cfg.prompt_generation.model = "gpt-5"
-        cfg.prompt_generation.max_concurrency = 2
-        cfg.art_styles = ["Realism", "Impressionism"]
-        
-        # Mock the OpenAI provider's async method
-        with patch('pixelbliss.prompts.get_provider') as mock_get_provider:
-            mock_provider = Mock()
-            mock_provider.make_variants_from_base_async = AsyncMock(
-                return_value=["variant1", "variant2", "variant3"]
-            )
-            mock_get_provider.return_value = mock_provider
-            
-            result = await make_variants_from_base_async("base prompt", 3, cfg)
-            
-            assert result == ["variant1", "variant2", "variant3"]
-            mock_provider.make_variants_from_base_async.assert_called_once_with(
-                "base prompt", 3, cfg.art_styles, cfg.prompt_generation.max_concurrency, None
-            )
 
     @pytest.mark.asyncio
-    async def test_make_variants_from_base_async_dummy(self):
-        """Test async prompt variant generation with dummy provider."""
-        from pixelbliss.prompts import make_variants_from_base_async
-        from pixelbliss.config import Config, PromptGeneration
-        
-        # Create config with dummy provider
-        cfg = Config()
-        cfg.prompt_generation = PromptGeneration()
-        cfg.prompt_generation.provider = "dummy"
-        cfg.prompt_generation.max_concurrency = 1
-        cfg.art_styles = ["Digital Art"]
-        
-        # Mock the dummy provider's async method
-        with patch('pixelbliss.prompts.get_provider') as mock_get_provider:
-            mock_provider = Mock()
-            mock_provider.make_variants_from_base_async = AsyncMock(
-                return_value=["dummy variant1", "dummy variant2"]
-            )
-            mock_get_provider.return_value = mock_provider
-            
-            result = await make_variants_from_base_async("base prompt", 2, cfg)
-            
-            assert result == ["dummy variant1", "dummy variant2"]
-            mock_provider.make_variants_from_base_async.assert_called_once_with(
-                "base prompt", 2, cfg.art_styles, cfg.prompt_generation.max_concurrency, None
-            )
-
-    @pytest.mark.asyncio
-    async def test_make_variants_from_base_async_fallback(self):
-        """Test async prompt variant generation fallback to sync method."""
-        from pixelbliss.prompts import make_variants_from_base_async
-        from pixelbliss.config import Config, PromptGeneration
-        
-        # Create config
-        cfg = Config()
-        cfg.prompt_generation = PromptGeneration()
-        cfg.prompt_generation.provider = "openai"
-        cfg.art_styles = ["Watercolor"]
-        
-        # Mock provider without async method (fallback case)
-        with patch('pixelbliss.prompts.get_provider') as mock_get_provider:
-            mock_provider = Mock()
-            # Don't add make_variants_from_base_async method to trigger fallback
-            mock_provider.make_variants_from_base.return_value = ["sync variant1", "sync variant2"]
-            # Explicitly delete the async method to ensure hasattr returns False
-            if hasattr(mock_provider, 'make_variants_from_base_async'):
-                delattr(mock_provider, 'make_variants_from_base_async')
-            mock_get_provider.return_value = mock_provider
-            
-            with patch('asyncio.to_thread', new_callable=AsyncMock) as mock_to_thread:
-                mock_to_thread.return_value = ["sync variant1", "sync variant2"]
-                
-                result = await make_variants_from_base_async("base prompt", 2, cfg)
-                
-                assert result == ["sync variant1", "sync variant2"]
-                mock_to_thread.assert_awaited_once_with(
-                    mock_provider.make_variants_from_base, 
-                    "base prompt", 
-                    2, 
-                    cfg.art_styles
-                )
-
-    @pytest.mark.asyncio
-    async def test_openai_provider_async_methods(self):
-        """Test OpenAI provider async methods directly."""
-        from pixelbliss.prompt_engine.openai_gpt5 import OpenAIGPT5Provider
-        
-        # Mock the OpenAI clients to avoid API key requirement
-        with patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI') as mock_openai, \
-             patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI') as mock_async_openai:
-            
-            # Create provider with mocked clients
-            provider = OpenAIGPT5Provider("gpt-5")
-            
-            # Mock the async client
-            mock_async_client = Mock()
-            mock_response = Mock()
-            mock_response.choices = [Mock()]
-            mock_response.choices[0].message.content = "Generated variant"
-            mock_async_client.chat.completions.create = AsyncMock(return_value=mock_response)
-            provider.async_client = mock_async_client
-            
-            # Test single variant generation
-            result = await provider._generate_single_variant_async("base prompt", "Realism")
-            
-            assert result == "Generated variant"
-            mock_async_client.chat.completions.create.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_openai_provider_async_variants_with_concurrency(self):
-        """Test OpenAI provider async variant generation with concurrency control."""
-        from pixelbliss.prompt_engine.openai_gpt5 import OpenAIGPT5Provider
-        
-        # Mock the OpenAI clients to avoid API key requirement
-        with patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI') as mock_openai, \
-             patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI') as mock_async_openai:
-            
-            # Create provider with mocked clients
-            provider = OpenAIGPT5Provider("gpt-5")
-            
-            # Mock the async client
-            mock_async_client = Mock()
-            mock_response = Mock()
-            mock_response.choices = [Mock()]
-            mock_response.choices[0].message.content = "Generated variant"
-            mock_async_client.chat.completions.create = AsyncMock(return_value=mock_response)
-            provider.async_client = mock_async_client
-            
-            # Test multiple variant generation with concurrency limit
-            result = await provider.make_variants_from_base_async(
-                "base prompt", 
-                3, 
-                ["Realism", "Impressionism", "Digital Art"], 
-                max_concurrency=2
-            )
-            
-            assert len(result) == 3
-            assert all(variant == "Generated variant" for variant in result)
-            assert mock_async_client.chat.completions.create.call_count == 3
-
-    @pytest.mark.asyncio
-    async def test_openai_provider_async_variants_with_exception(self):
-        """Test OpenAI provider async variant generation with exception handling."""
-        from pixelbliss.prompt_engine.openai_gpt5 import OpenAIGPT5Provider
-        
-        # Mock the OpenAI clients to avoid API key requirement
-        with patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI') as mock_openai, \
-             patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI') as mock_async_openai:
-            
-            # Create provider with mocked clients
-            provider = OpenAIGPT5Provider("gpt-5")
-            
-            # Mock random.choice to make style selection deterministic
-            with patch('pixelbliss.prompt_engine.openai_gpt5.random.choice') as mock_choice:
-                # Return styles in order: Realism, Impressionism, Digital Art
-                mock_choice.side_effect = ["Realism", "Impressionism", "Digital Art"]
-                
-                # Mock the async client to raise an exception for one call
-                mock_async_client = Mock()
-                # First call succeeds, second fails, third succeeds
-                mock_response = Mock()
-                mock_response.choices = [Mock()]
-                mock_response.choices[0].message.content = "Generated variant"
-                
-                mock_async_client.chat.completions.create = AsyncMock(
-                    side_effect=[mock_response, Exception("API Error"), mock_response]
-                )
-                provider.async_client = mock_async_client
-                
-                # Test variant generation with exception
-                result = await provider.make_variants_from_base_async(
-                    "base prompt", 
-                    3, 
-                    ["Realism", "Impressionism", "Digital Art"]
-                )
-                
-                assert len(result) == 3
-                # First and third should be successful, second should be fallback
-                assert result[0] == "Generated variant"
-                assert result[1] == "base prompt in Impressionism style"  # Fallback (uses second style)
-                assert result[2] == "Generated variant"
-
-    @pytest.mark.asyncio
-    async def test_dummy_provider_async_method(self):
-        """Test dummy provider async method."""
+    async def test_dummy_provider_knobs_async_method(self):
+        """Test dummy provider async knobs method."""
         from pixelbliss.prompt_engine.dummy_local import DummyLocalProvider
         
         provider = DummyLocalProvider()
         
-        result = await provider.make_variants_from_base_async(
-            "base prompt", 
+        base_prompt = "A beautiful landscape"
+        variant_knobs_list = [
+            {"tone_curve": "high-key airy matte", "color_grade": "warm gold + muted", "surface_fx": "soft matte"},
+            {"tone_curve": "low-key velvet deep", "color_grade": "cool silver + desaturated", "surface_fx": "pearl glow"}
+        ]
+        
+        result = await provider.make_variants_with_knobs_async(
+            base_prompt, 
             2, 
-            ["Digital Art", "Watercolor"]
+            variant_knobs_list
         )
         
         assert len(result) == 2
-        assert "base prompt" in result[0]
-        assert "Digital Art" in result[0]
-        assert "base prompt" in result[1]
-        assert "Watercolor" in result[1]
+        assert "Variation 1" in result[0]
+        assert "tone_curve: high-key airy matte" in result[0]
+        assert "Variation 2" in result[1]
+        assert "tone_curve: low-key velvet deep" in result[1]
 
     @patch('pixelbliss.run_once.config.load_config')
     @patch('pixelbliss.run_once.select_category')
