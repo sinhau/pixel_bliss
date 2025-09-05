@@ -526,3 +526,174 @@ class TestProgressLoggerIntegration:
         assert "Test step" in call_args
         # Should not contain parentheses when no details
         assert "(" not in call_args
+
+    def test_log_base_prompt_generation(self):
+        """Test log_base_prompt_generation method."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        progress_logger.log_base_prompt_generation("sci-fi", "openai", "gpt-5")
+        
+        mock_logger.info.assert_called()
+        call_args = mock_logger.info.call_args[0][0]
+        assert "🎯" in call_args
+        assert "sci-fi" in call_args
+        assert "openai/gpt-5" in call_args
+        assert "Generating base prompt" in call_args
+
+    def test_log_base_prompt_success(self):
+        """Test log_base_prompt_success method."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        base_prompt = "A beautiful sci-fi landscape with futuristic buildings and neon lights"
+        progress_logger.log_base_prompt_success(base_prompt, 2.5)
+        
+        mock_logger.info.assert_called()
+        call_args = mock_logger.info.call_args[0][0]
+        assert "✓" in call_args
+        assert "Base prompt generated" in call_args
+        assert "(2.50s)" in call_args
+        assert "A beautiful sci-fi landscape" in call_args
+
+    def test_log_base_prompt_success_without_time(self):
+        """Test log_base_prompt_success method without generation time."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        base_prompt = "A beautiful sci-fi landscape"
+        progress_logger.log_base_prompt_success(base_prompt)
+        
+        mock_logger.info.assert_called()
+        call_args = mock_logger.info.call_args[0][0]
+        assert "✓" in call_args
+        assert "Base prompt generated" in call_args
+        assert "(" not in call_args  # No time info
+        assert "A beautiful sci-fi landscape" in call_args
+
+    def test_log_base_prompt_success_long_prompt(self):
+        """Test log_base_prompt_success method with long prompt."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        base_prompt = "A" * 100  # 100 character prompt
+        progress_logger.log_base_prompt_success(base_prompt, 1.0)
+        
+        mock_logger.info.assert_called()
+        call_args = mock_logger.info.call_args[0][0]
+        assert "✓" in call_args
+        assert "..." in call_args  # Should be truncated
+        # Check that the prompt was truncated (should contain "..." and be shorter than original)
+        assert base_prompt[:80] + "..." in call_args
+
+    def test_log_variant_prompt_generation_start(self):
+        """Test log_variant_prompt_generation_start method."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        progress_logger.log_variant_prompt_generation_start(5, "openai", "gpt-5", True)
+        
+        mock_logger.info.assert_called()
+        call_args = mock_logger.info.call_args[0][0]
+        assert "🔀" in call_args
+        assert "5 prompt variants" in call_args
+        assert "openai/gpt-5" in call_args
+        assert "parallel mode" in call_args
+
+    def test_log_variant_prompt_generation_start_sequential(self):
+        """Test log_variant_prompt_generation_start method in sequential mode."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        progress_logger.log_variant_prompt_generation_start(3, "dummy", "local", False)
+        
+        mock_logger.info.assert_called()
+        call_args = mock_logger.info.call_args[0][0]
+        assert "🔀" in call_args
+        assert "3 prompt variants" in call_args
+        assert "dummy/local" in call_args
+        assert "sequential mode" in call_args
+
+    def test_log_variant_prompt_success(self):
+        """Test log_variant_prompt_success method."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        variant_prompts = [
+            "Variant 1: A sci-fi scene with robots",
+            "Variant 2: A fantasy landscape with dragons",
+            "Variant 3: A cyberpunk city at night"
+        ]
+        progress_logger.log_variant_prompt_success(variant_prompts, 5.2)
+        
+        mock_logger.info.assert_called()
+        mock_logger.debug.assert_called()
+        
+        # Check main success message
+        info_call_args = mock_logger.info.call_args[0][0]
+        assert "✓" in info_call_args
+        assert "Generated 3 prompt variants" in info_call_args
+        assert "(5.20s)" in info_call_args
+        
+        # Check that debug was called for each variant
+        assert mock_logger.debug.call_count == 3
+        debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
+        assert "#1" in debug_calls[0]
+        assert "#2" in debug_calls[1]
+        assert "#3" in debug_calls[2]
+
+    def test_log_variant_prompt_success_without_time(self):
+        """Test log_variant_prompt_success method without generation time."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        variant_prompts = ["Variant 1", "Variant 2"]
+        progress_logger.log_variant_prompt_success(variant_prompts)
+        
+        mock_logger.info.assert_called()
+        call_args = mock_logger.info.call_args[0][0]
+        assert "✓" in call_args
+        assert "Generated 2 prompt variants" in call_args
+        assert "(" not in call_args  # No time info
+
+    def test_log_variant_prompt_success_long_variants(self):
+        """Test log_variant_prompt_success method with long variant prompts."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        long_variant = "A" * 80  # 80 character variant
+        variant_prompts = [long_variant]
+        progress_logger.log_variant_prompt_success(variant_prompts, 1.0)
+        
+        mock_logger.debug.assert_called()
+        debug_call_args = mock_logger.debug.call_args[0][0]
+        assert "..." in debug_call_args  # Should be truncated
+        assert "#1" in debug_call_args
+
+    def test_log_variant_prompt_error(self):
+        """Test log_variant_prompt_error method."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        progress_logger.log_variant_prompt_error("API rate limit exceeded", 3.1)
+        
+        mock_logger.error.assert_called()
+        call_args = mock_logger.error.call_args[0][0]
+        assert "✗" in call_args
+        assert "Variant prompt generation failed" in call_args
+        assert "(after 3.10s)" in call_args
+        assert "API rate limit exceeded" in call_args
+
+    def test_log_variant_prompt_error_without_time(self):
+        """Test log_variant_prompt_error method without generation time."""
+        mock_logger = Mock()
+        progress_logger = ProgressLogger(mock_logger)
+        
+        progress_logger.log_variant_prompt_error("Connection timeout")
+        
+        mock_logger.error.assert_called()
+        call_args = mock_logger.error.call_args[0][0]
+        assert "✗" in call_args
+        assert "Variant prompt generation failed" in call_args
+        assert "Connection timeout" in call_args
+        assert "(" not in call_args  # No time info

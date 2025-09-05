@@ -103,6 +103,42 @@ class ProgressLogger:
         message = f"  {Fore.BLUE}🔄{Style.RESET_ALL} Starting {desc} ({total_items} items)"
         self.logger.info(message)
     
+    def log_base_prompt_generation(self, category: str, provider: str, model: str):
+        """Log the start of base prompt generation."""
+        message = f"  {Fore.CYAN}🎯{Style.RESET_ALL} Generating base prompt for category '{category}' using {provider}/{model}"
+        self.logger.info(message)
+    
+    def log_base_prompt_success(self, base_prompt: str, generation_time: float = None):
+        """Log successful base prompt generation."""
+        preview = base_prompt[:80] + "..." if len(base_prompt) > 80 else base_prompt
+        time_info = f" ({generation_time:.2f}s)" if generation_time else ""
+        message = f"  {Fore.GREEN}✓{Style.RESET_ALL} Base prompt generated{time_info}: {Fore.WHITE}{preview}{Style.RESET_ALL}"
+        self.logger.info(message)
+    
+    def log_variant_prompt_generation_start(self, num_variants: int, provider: str, model: str, async_mode: bool):
+        """Log the start of variant prompt generation."""
+        mode_text = "parallel" if async_mode else "sequential"
+        message = f"  {Fore.CYAN}🔀{Style.RESET_ALL} Generating {num_variants} prompt variants using {provider}/{model} ({mode_text} mode)"
+        self.logger.info(message)
+    
+    def log_variant_prompt_success(self, variant_prompts: list, generation_time: float = None):
+        """Log successful variant prompt generation."""
+        time_info = f" ({generation_time:.2f}s)" if generation_time else ""
+        message = f"  {Fore.GREEN}✓{Style.RESET_ALL} Generated {len(variant_prompts)} prompt variants{time_info}"
+        self.logger.info(message)
+        
+        # Log each variant with a preview
+        for i, variant in enumerate(variant_prompts, 1):
+            preview = variant[:60] + "..." if len(variant) > 60 else variant
+            variant_msg = f"    {Fore.YELLOW}#{i}{Style.RESET_ALL} {Fore.WHITE}{preview}{Style.RESET_ALL}"
+            self.logger.debug(variant_msg)
+    
+    def log_variant_prompt_error(self, error: str, generation_time: float = None):
+        """Log variant prompt generation error."""
+        time_info = f" (after {generation_time:.2f}s)" if generation_time else ""
+        message = f"  {Fore.RED}✗{Style.RESET_ALL} Variant prompt generation failed{time_info}: {error}"
+        self.logger.error(message)
+    
     def update_operation_progress(self, operation_name: str, completed: int = None, increment: int = 1):
         """Update progress for a parallel operation."""
         if operation_name not in self._operation_progress:

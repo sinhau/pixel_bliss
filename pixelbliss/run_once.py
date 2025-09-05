@@ -387,16 +387,17 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
 
         # Step 3: Generate prompts
         progress_logger.step("Generating prompts")
-        base_prompt = prompts.make_base(category, cfg)
+        
+        # Generate base prompt with detailed logging
+        base_prompt = prompts.make_base(category, cfg, progress_logger)
         logger.info(f"Base prompt generated: {base_prompt[:100]}...")
         
+        # Generate variant prompts with detailed logging
         logger.info(f"Starting prompt variant generation (async: {cfg.prompt_generation.async_enabled})")
         if cfg.prompt_generation.async_enabled:
-            progress_logger.substep("Using parallel prompt generation")
             variant_prompts = await prompts.make_variants_from_base_async(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg, progress_logger)
         else:
-            progress_logger.substep("Using sequential prompt generation")
-            variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
+            variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg, progress_logger)
         
         logger.info(f"Generated {len(variant_prompts)} prompt variants")
         for i, vp in enumerate(variant_prompts, 1):

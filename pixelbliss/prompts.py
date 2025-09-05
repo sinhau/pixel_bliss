@@ -1,8 +1,10 @@
 import asyncio
+import time
 from .config import Config
 from .prompt_engine.openai_gpt5 import OpenAIGPT5Provider
 from .prompt_engine.dummy_local import DummyLocalProvider
 from .prompt_engine.base import PromptProvider
+from .logging_config import get_logger
 
 def get_provider(cfg: Config) -> PromptProvider:
     """
@@ -26,21 +28,44 @@ def get_provider(cfg: Config) -> PromptProvider:
     else:
         raise ValueError(f"Unknown prompt provider: {cfg.prompt_generation.provider}")
 
-def make_base(category: str, cfg: Config) -> str:
+def make_base(category: str, cfg: Config, progress_logger=None) -> str:
     """
     Generate a base prompt for the given category.
     
     Args:
         category: The category/theme for the prompt (e.g., "sci-fi", "nature").
         cfg: Configuration object containing prompt generation settings.
+        progress_logger: Optional progress logger for tracking generation progress.
         
     Returns:
         str: Generated base prompt for the category.
     """
+    logger = get_logger('prompts')
     provider = get_provider(cfg)
-    return provider.make_base(category)
+    
+    # Log the start of base prompt generation
+    if progress_logger:
+        progress_logger.log_base_prompt_generation(category, cfg.prompt_generation.provider, cfg.prompt_generation.model)
+    
+    start_time = time.time()
+    try:
+        base_prompt = provider.make_base(category)
+        generation_time = time.time() - start_time
+        
+        # Log successful generation
+        if progress_logger:
+            progress_logger.log_base_prompt_success(base_prompt, generation_time)
+        else:
+            logger.info(f"Base prompt generated for '{category}' in {generation_time:.2f}s: {base_prompt[:80]}...")
+        
+        return base_prompt
+        
+    except Exception as e:
+        generation_time = time.time() - start_time
+        logger.error(f"Base prompt generation failed for '{category}' after {generation_time:.2f}s: {e}")
+        raise
 
-def make_variants_from_base(base_prompt: str, k: int, cfg: Config) -> list[str]:
+def make_variants_from_base(base_prompt: str, k: int, cfg: Config, progress_logger=None) -> list[str]:
     """
     Generate k variations of a base prompt.
     
@@ -48,12 +73,41 @@ def make_variants_from_base(base_prompt: str, k: int, cfg: Config) -> list[str]:
         base_prompt: The original prompt to create variations from.
         k: Number of variations to generate.
         cfg: Configuration object containing prompt generation settings.
+        progress_logger: Optional progress logger for tracking generation progress.
         
     Returns:
         list[str]: List of k prompt variations.
     """
+    logger = get_logger('prompts')
     provider = get_provider(cfg)
-    return provider.make_variants_from_base(base_prompt, k, cfg.art_styles)
+    
+    # Log the start of variant prompt generation
+    if progress_logger:
+        progress_logger.log_variant_prompt_generation_start(k, cfg.prompt_generation.provider, cfg.prompt_generation.model, False)
+    
+    start_time = time.time()
+    try:
+        variant_prompts = provider.make_variants_from_base(base_prompt, k, cfg.art_styles)
+        generation_time = time.time() - start_time
+        
+        # Log successful generation
+        if progress_logger:
+            progress_logger.log_variant_prompt_success(variant_prompts, generation_time)
+        else:
+            logger.info(f"Generated {len(variant_prompts)} prompt variants in {generation_time:.2f}s")
+            for i, variant in enumerate(variant_prompts, 1):
+                logger.debug(f"Variant {i}: {variant[:60]}...")
+        
+        return variant_prompts
+        
+    except Exception as e:
+        generation_time = time.time() - start_time
+        error_msg = str(e)
+        if progress_logger:
+            progress_logger.log_variant_prompt_error(error_msg, generation_time)
+        else:
+            logger.error(f"Variant prompt generation failed after {generation_time:.2f}s: {error_msg}")
+        raise
 
 def make_alt_text(base_prompt: str, variant_prompt: str, cfg: Config) -> str:
     """
@@ -83,32 +137,60 @@ async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config, p
     Returns:
         list[str]: List of k prompt variations.
     """
+    logger = get_logger('prompts')
     provider = get_provider(cfg)
     
-    # Check if provider supports async generation
-    if hasattr(provider, 'make_variants_from_base_async'):
-        return await provider.make_variants_from_base_async(
-            base_prompt, 
-            k, 
-            cfg.art_styles, 
-            cfg.prompt_generation.max_concurrency,
-            progress_logger
-        )
-    else:
-        # Fallback to synchronous generation with progress tracking
-        if progress_logger:
-            progress_logger.start_operation("prompt_generation", k, "sequential prompt generation")
-        
-        async def generate_with_progress():
-            result = await asyncio.to_thread(
-                provider.make_variants_from_base, 
+    # Log the start of variant prompt generation
+    if progress_logger:
+        progress_logger.log_variant_prompt_generation_start(k, cfg.prompt_generation.provider, cfg.prompt_generation.model, True)
+    
+    start_time = time.time()
+    try:
+        # Check if provider supports async generation
+        if hasattr(provider, 'make_variants_from_base_async'):
+            variant_prompts = await provider.make_variants_from_base_async(
                 base_prompt, 
                 k, 
-                cfg.art_styles
+                cfg.art_styles, 
+                cfg.prompt_generation.max_concurrency,
+                progress_logger
             )
+        else:
+            # Fallback to synchronous generation with progress tracking
             if progress_logger:
-                progress_logger.update_operation_progress("prompt_generation", completed=k)
-                progress_logger.finish_operation("prompt_generation", success=True)
-            return result
+                progress_logger.start_operation("prompt_generation", k, "sequential prompt generation")
+            
+            async def generate_with_progress():
+                result = await asyncio.to_thread(
+                    provider.make_variants_from_base, 
+                    base_prompt, 
+                    k, 
+                    cfg.art_styles
+                )
+                if progress_logger:
+                    progress_logger.update_operation_progress("prompt_generation", completed=k)
+                    progress_logger.finish_operation("prompt_generation", success=True)
+                return result
+            
+            variant_prompts = await generate_with_progress()
         
-        return await generate_with_progress()
+        generation_time = time.time() - start_time
+        
+        # Log successful generation
+        if progress_logger:
+            progress_logger.log_variant_prompt_success(variant_prompts, generation_time)
+        else:
+            logger.info(f"Generated {len(variant_prompts)} prompt variants in {generation_time:.2f}s (async)")
+            for i, variant in enumerate(variant_prompts, 1):
+                logger.debug(f"Variant {i}: {variant[:60]}...")
+        
+        return variant_prompts
+        
+    except Exception as e:
+        generation_time = time.time() - start_time
+        error_msg = str(e)
+        if progress_logger:
+            progress_logger.log_variant_prompt_error(error_msg, generation_time)
+        else:
+            logger.error(f"Async variant prompt generation failed after {generation_time:.2f}s: {error_msg}")
+        raise
