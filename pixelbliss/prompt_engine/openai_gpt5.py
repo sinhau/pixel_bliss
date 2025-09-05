@@ -33,19 +33,20 @@ class OpenAIGPT5Provider(PromptProvider):
             "Keep them aesthetic and wallpaper-friendly. "
             "Rules: No real people, no logos, no NSFW. Include negative prompts."
         )
-        user_prompt = f"Base prompt: {base_prompt}\n\nGenerate {k} creative variations of this prompt."
+        variants = []
+        for _ in range(k):
+            user_prompt = f"Base prompt: {base_prompt}\n\nGenerate one creative variation of this prompt."
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-        )
-        content = response.choices[0].message.content.strip()
-        # Assume the response is a list, split by lines or something
-        variants = [line.strip() for line in content.split('\n') if line.strip()]
-        return variants[:k]  # Take first k
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+            )
+            variant = response.choices[0].message.content.strip()
+            variants.append(variant)
+        return variants
 
     def make_alt_text(self, base_prompt: str, variant_prompt: str) -> str:
         system_prompt = (
