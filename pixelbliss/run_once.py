@@ -348,18 +348,26 @@ def post_once(dry_run: bool = False):
         if not passes_local:
             continue
         
-        # Pass image URL and config to aesthetic scoring
-        image_url = c.get("image_url")
-        if image_url:
-            a = aesthetic.aesthetic(image_url, cfg)
-        else:
-            # No URL available, use default score
-            a = 0.5
         c["brightness"] = b
         c["entropy"] = e
-        c["aesthetic"] = a
         c["local_quality"] = local_q
         scored.append(c)
+    
+    # Add aesthetic scores - use parallel scoring if async is enabled
+    if scored:
+        if cfg.image_generation.async_enabled:
+            # Use parallel aesthetic scoring
+            scored = asyncio.run(aesthetic.score_candidates_parallel(scored, cfg))
+        else:
+            # Use sequential aesthetic scoring (fallback)
+            for c in scored:
+                image_url = c.get("image_url")
+                if image_url:
+                    a = aesthetic.aesthetic(image_url, cfg)
+                else:
+                    # No URL available, use default score
+                    a = 0.5
+                c["aesthetic"] = a
 
     if not scored:
         alerts.webhook.send_failure("all candidates failed sanity/scoring", cfg)

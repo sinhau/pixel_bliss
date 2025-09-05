@@ -1,10 +1,15 @@
 import pytest
+import asyncio
 import random
 from unittest.mock import patch, Mock
 from pixelbliss.scoring.aesthetic import (
     aesthetic_dummy_local,
     aesthetic_replicate,
-    aesthetic
+    aesthetic,
+    aesthetic_dummy_local_async,
+    aesthetic_replicate_async,
+    aesthetic_async,
+    score_candidates_parallel
 )
 from pixelbliss.config import Config
 
@@ -307,3 +312,323 @@ class TestAesthetic:
         
         with pytest.raises(NotImplementedError, match="Unknown provider None"):
             aesthetic("https://example.com/image.jpg", mock_config)
+
+
+@pytest.fixture
+def mock_config_with_async():
+    """Create a mock config with async settings for testing."""
+    config = Mock(spec=Config)
+    config.aesthetic_scoring = Mock()
+    config.aesthetic_scoring.provider = "dummy_local"
+    config.aesthetic_scoring.model = "test-model"
+    config.aesthetic_scoring.score_min = 0.0
+    config.aesthetic_scoring.score_max = 1.0
+    config.image_generation = Mock()
+    config.image_generation.max_concurrency = None
+    return config
+
+
+@pytest.fixture
+def mock_config_with_concurrency_limit():
+    """Create a mock config with concurrency limit for testing."""
+    config = Mock(spec=Config)
+    config.aesthetic_scoring = Mock()
+    config.aesthetic_scoring.provider = "dummy_local"
+    config.aesthetic_scoring.model = "test-model"
+    config.aesthetic_scoring.score_min = 0.0
+    config.aesthetic_scoring.score_max = 1.0
+    config.image_generation = Mock()
+    config.image_generation.max_concurrency = 2
+    return config
+
+
+@pytest.fixture
+def mock_config_replicate_async():
+    """Create a mock config for replicate provider with async settings."""
+    config = Mock(spec=Config)
+    config.aesthetic_scoring = Mock()
+    config.aesthetic_scoring.provider = "replicate"
+    config.aesthetic_scoring.model = "test-aesthetic-model"
+    config.aesthetic_scoring.score_min = 0.0
+    config.aesthetic_scoring.score_max = 10.0
+    config.image_generation = Mock()
+    config.image_generation.max_concurrency = None
+    return config
+
+
+class TestAestheticAsync:
+    """Test cases for async aesthetic scoring functions."""
+
+    @pytest.mark.asyncio
+    async def test_aesthetic_dummy_local_async_basic(self, mock_config_with_async):
+        """Test basic functionality of async dummy local aesthetic scoring."""
+        result = await aesthetic_dummy_local_async("https://example.com/image.jpg", mock_config_with_async)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_aesthetic_dummy_local_async_reproducible(self, mock_config_with_async):
+        """Test that async version produces same results as sync version."""
+        url = "https://example.com/test.jpg"
+        
+        sync_result = aesthetic_dummy_local(url, mock_config_with_async)
+        async_result = await aesthetic_dummy_local_async(url, mock_config_with_async)
+        
+        assert sync_result == async_result
+
+    @pytest.mark.asyncio
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    async def test_aesthetic_replicate_async_basic(self, mock_replicate_run, mock_config_replicate_async):
+        """Test basic functionality of async replicate aesthetic scoring."""
+        mock_replicate_run.return_value = 7.5
+        
+        result = await aesthetic_replicate_async("https://example.com/image.jpg", mock_config_replicate_async)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+        assert result == 0.75  # 7.5 in [0,10] -> 0.75 in [0,1]
+
+    @pytest.mark.asyncio
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    async def test_aesthetic_replicate_async_matches_sync(self, mock_replicate_run, mock_config_replicate_async):
+        """Test that async version produces same results as sync version."""
+        mock_replicate_run.return_value = 6.0
+        url = "https://example.com/image.jpg"
+        
+        sync_result = aesthetic_replicate(url, mock_config_replicate_async)
+        async_result = await aesthetic_replicate_async(url, mock_config_replicate_async)
+        
+        assert sync_result == async_result
+
+    @pytest.mark.asyncio
+    async def test_aesthetic_async_dummy_local_provider(self, mock_config_with_async):
+        """Test async aesthetic function with dummy_local provider."""
+        mock_config_with_async.aesthetic_scoring.provider = "dummy_local"
+        
+        result = await aesthetic_async("https://example.com/image.jpg", mock_config_with_async)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+
+    @pytest.mark.asyncio
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    async def test_aesthetic_async_replicate_provider(self, mock_replicate_run, mock_config_replicate_async):
+        """Test async aesthetic function with replicate provider."""
+        mock_replicate_run.return_value = 5.0
+        
+        result = await aesthetic_async("https://example.com/image.jpg", mock_config_replicate_async)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+        assert result == 0.5  # 5.0 in [0,10] -> 0.5 in [0,1]
+
+    @pytest.mark.asyncio
+    async def test_aesthetic_async_unknown_provider(self, mock_config_with_async):
+        """Test async aesthetic function with unknown provider."""
+        mock_config_with_async.aesthetic_scoring.provider = "unknown_provider"
+        
+        with pytest.raises(NotImplementedError, match="Unknown provider unknown_provider"):
+            await aesthetic_async("https://example.com/image.jpg", mock_config_with_async)
+
+    @pytest.mark.asyncio
+    async def test_aesthetic_async_matches_sync_results(self, mock_config_with_async):
+        """Test that async version produces same results as sync version."""
+        url = "https://example.com/consistent.jpg"
+        
+        sync_result = aesthetic(url, mock_config_with_async)
+        async_result = await aesthetic_async(url, mock_config_with_async)
+        
+        assert sync_result == async_result
+
+
+class TestScoreCandidatesParallel:
+    """Test cases for parallel candidate scoring function."""
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_basic(self, mock_config_with_async):
+        """Test basic parallel scoring of candidates."""
+        candidates = [
+            {"image_url": "https://example.com/image1.jpg"},
+            {"image_url": "https://example.com/image2.jpg"},
+            {"image_url": "https://example.com/image3.jpg"}
+        ]
+        
+        result = await score_candidates_parallel(candidates, mock_config_with_async)
+        
+        assert len(result) == 3
+        for candidate in result:
+            assert "aesthetic" in candidate
+            assert isinstance(candidate["aesthetic"], float)
+            assert 0.0 <= candidate["aesthetic"] <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_empty_list(self, mock_config_with_async):
+        """Test parallel scoring with empty candidate list."""
+        candidates = []
+        
+        result = await score_candidates_parallel(candidates, mock_config_with_async)
+        
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_no_image_url(self, mock_config_with_async):
+        """Test parallel scoring with candidates missing image_url."""
+        candidates = [
+            {"image_url": "https://example.com/image1.jpg"},
+            {"other_field": "no_url"},  # Missing image_url
+            {"image_url": None}  # None image_url
+        ]
+        
+        result = await score_candidates_parallel(candidates, mock_config_with_async)
+        
+        assert len(result) == 3
+        assert result[0]["aesthetic"] != 0.5  # Should have real score
+        assert result[1]["aesthetic"] == 0.5  # Should have default score
+        assert result[2]["aesthetic"] == 0.5  # Should have default score
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_with_concurrency_limit(self, mock_config_with_concurrency_limit):
+        """Test parallel scoring with concurrency limit."""
+        candidates = [
+            {"image_url": f"https://example.com/image{i}.jpg"}
+            for i in range(5)
+        ]
+        
+        result = await score_candidates_parallel(candidates, mock_config_with_concurrency_limit)
+        
+        assert len(result) == 5
+        for candidate in result:
+            assert "aesthetic" in candidate
+            assert isinstance(candidate["aesthetic"], float)
+            assert 0.0 <= candidate["aesthetic"] <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_preserves_original_data(self, mock_config_with_async):
+        """Test that parallel scoring preserves original candidate data."""
+        candidates = [
+            {
+                "image_url": "https://example.com/image1.jpg",
+                "prompt": "test prompt",
+                "provider": "test_provider",
+                "model": "test_model"
+            },
+            {
+                "image_url": "https://example.com/image2.jpg",
+                "brightness": 0.8,
+                "entropy": 0.6
+            }
+        ]
+        
+        result = await score_candidates_parallel(candidates, mock_config_with_async)
+        
+        assert len(result) == 2
+        
+        # Check first candidate
+        assert result[0]["prompt"] == "test prompt"
+        assert result[0]["provider"] == "test_provider"
+        assert result[0]["model"] == "test_model"
+        assert "aesthetic" in result[0]
+        
+        # Check second candidate
+        assert result[1]["brightness"] == 0.8
+        assert result[1]["entropy"] == 0.6
+        assert "aesthetic" in result[1]
+
+    @pytest.mark.asyncio
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    async def test_score_candidates_parallel_replicate_provider(self, mock_replicate_run, mock_config_replicate_async):
+        """Test parallel scoring with replicate provider."""
+        # Since parallel execution doesn't guarantee order, we'll use the same score for all
+        mock_replicate_run.return_value = 7.5
+        
+        candidates = [
+            {"image_url": "https://example.com/image1.jpg"},
+            {"image_url": "https://example.com/image2.jpg"},
+            {"image_url": "https://example.com/image3.jpg"}
+        ]
+        
+        result = await score_candidates_parallel(candidates, mock_config_replicate_async)
+        
+        assert len(result) == 3
+        # All should have the same score since we're using the same return value
+        for candidate in result:
+            assert candidate["aesthetic"] == 0.75  # 7.5 in [0,10] -> 0.75
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_consistency_with_sequential(self, mock_config_with_async):
+        """Test that parallel scoring produces same results as sequential scoring."""
+        candidates = [
+            {"image_url": "https://example.com/image1.jpg"},
+            {"image_url": "https://example.com/image2.jpg"}
+        ]
+        
+        # Sequential scoring
+        sequential_results = []
+        for candidate in candidates:
+            candidate_copy = candidate.copy()
+            image_url = candidate_copy.get("image_url")
+            if image_url:
+                score = aesthetic(image_url, mock_config_with_async)
+            else:
+                score = 0.5
+            candidate_copy["aesthetic"] = score
+            sequential_results.append(candidate_copy)
+        
+        # Parallel scoring
+        parallel_results = await score_candidates_parallel(candidates.copy(), mock_config_with_async)
+        
+        # Compare results
+        assert len(sequential_results) == len(parallel_results)
+        for seq, par in zip(sequential_results, parallel_results):
+            assert seq["aesthetic"] == par["aesthetic"]
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_zero_concurrency_limit(self, mock_config_with_async):
+        """Test parallel scoring with zero concurrency limit (no semaphore)."""
+        mock_config_with_async.image_generation.max_concurrency = 0
+        
+        candidates = [
+            {"image_url": "https://example.com/image1.jpg"},
+            {"image_url": "https://example.com/image2.jpg"}
+        ]
+        
+        result = await score_candidates_parallel(candidates, mock_config_with_async)
+        
+        assert len(result) == 2
+        for candidate in result:
+            assert "aesthetic" in candidate
+            assert isinstance(candidate["aesthetic"], float)
+            assert 0.0 <= candidate["aesthetic"] <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_single_candidate(self, mock_config_with_async):
+        """Test parallel scoring with single candidate."""
+        candidates = [{"image_url": "https://example.com/single.jpg"}]
+        
+        result = await score_candidates_parallel(candidates, mock_config_with_async)
+        
+        assert len(result) == 1
+        assert "aesthetic" in result[0]
+        assert isinstance(result[0]["aesthetic"], float)
+        assert 0.0 <= result[0]["aesthetic"] <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_score_candidates_parallel_modifies_original_objects(self, mock_config_with_async):
+        """Test that parallel scoring modifies the original candidate objects."""
+        candidates = [
+            {"image_url": "https://example.com/image1.jpg"},
+            {"image_url": "https://example.com/image2.jpg"}
+        ]
+        original_candidates = candidates.copy()
+        
+        result = await score_candidates_parallel(candidates, mock_config_with_async)
+        
+        # The function should modify the original objects and return them
+        assert result is not original_candidates  # Different list
+        assert result[0] is candidates[0]  # Same objects
+        assert result[1] is candidates[1]  # Same objects
+        
+        # Original candidates should now have aesthetic scores
+        assert "aesthetic" in candidates[0]
+        assert "aesthetic" in candidates[1]

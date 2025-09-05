@@ -1,6 +1,6 @@
 import os
 import yaml
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from pathlib import Path
 
@@ -15,7 +15,7 @@ class ImageGeneration(BaseModel):
     model_replicate: List[str] = ["black-forest-labs/flux"]
     retries_per_image: int = 2
     async_enabled: bool = True
-    max_concurrency: int = None  # None means no limit, defaults to number of variants
+    max_concurrency: Optional[int] = None  # None means no limit, defaults to number of variants
 
 class Ranking(BaseModel):
     w_brightness: float = 0.25

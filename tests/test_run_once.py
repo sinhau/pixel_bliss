@@ -281,6 +281,8 @@ class TestPostOnce:
         mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_cfg.upscale.enabled = False
+        mock_cfg.aesthetic_scoring = Mock()
+        mock_cfg.aesthetic_scoring.provider = "dummy_local"
         mock_config.return_value = mock_cfg
         
         # Setup mocks for successful path
@@ -339,6 +341,8 @@ class TestPostOnce:
         mock_cfg.image_generation.async_enabled = True
         mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.aesthetic_scoring = Mock()
+        mock_cfg.aesthetic_scoring.provider = "dummy_local"
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -435,6 +439,9 @@ class TestPostOnce:
         mock_cfg.image_generation.async_enabled = True
         mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.aesthetic_scoring.provider = "dummy_local"
+        mock_cfg.aesthetic_scoring.score_min = 0.0
+        mock_cfg.aesthetic_scoring.score_max = 1.0
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -815,7 +822,8 @@ class TestAsyncIntegration:
         result = post_once(dry_run=True)
         
         assert result == 0
-        mock_asyncio_run.assert_called_once()  # Verify async path was used
+        # Verify async path was used - should be called twice (image generation + aesthetic scoring)
+        assert mock_asyncio_run.call_count == 2
 
     @patch('pixelbliss.run_once.config.load_config')
     @patch('pixelbliss.run_once.select_category')
@@ -878,6 +886,86 @@ class TestAsyncIntegration:
         
         # Mock rescoring
         mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_collage.return_value = "/test/collage.jpg"
+        mock_hashes.return_value = []
+        mock_duplicate.return_value = False
+        mock_phash.return_value = "abc123"
+        mock_variants_wall.return_value = {"desktop": mock_image}
+        mock_alt.return_value = "alt text"
+        mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+        mock_iso.return_value = "2024-01-01T12:00:00"
+        
+        result = post_once(dry_run=True)
+        
+        assert result == 0
+        mock_sequential.assert_called_once()  # Verify sequential path was used
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.generate_images_sequential')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
+    @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_images')
+    @patch('pixelbliss.run_once.storage.fs.save_meta')
+    @patch('pixelbliss.run_once.manifest.append')
+    @patch('pixelbliss.run_once.now_iso')
+    def test_post_once_async_disabled_no_image_url(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
+                                                  mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
+                                                  mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
+                                                  mock_quality, mock_floors, mock_entropy, mock_brightness,
+                                                  mock_sequential, mock_variants, mock_base, mock_category, mock_config):
+        """Test post_once uses sequential generation when async disabled and no image_url available."""
+        # Setup config with async disabled
+        mock_cfg = Mock()
+        mock_cfg.image_generation.async_enabled = False
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.upscale.enabled = False
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock sequential generation result WITHOUT image_url
+        mock_image = Mock()
+        mock_candidates = [
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"}
+            # Note: no "image_url" key - this will trigger the fallback a = 0.5 line
+        ]
+        mock_sequential.return_value = mock_candidates
+        
+        # Mock scoring to pass all checks
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = True
+        mock_quality.return_value = (True, 0.8)
+        # Don't mock aesthetic.aesthetic - let it execute the real code path
+        
+        # Mock rescoring - need to include aesthetic score that will be set to 0.5
+        mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.5, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
         
         # Mock file operations
         mock_today.return_value = "2024-01-01"
