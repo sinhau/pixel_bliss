@@ -257,12 +257,12 @@ class TestSaveCollage:
         
         assert os.path.exists(result_path)
 
-    @patch('pixelbliss.imaging.collage.os.makedirs')
-    def test_save_collage_makedirs_called(self, mock_makedirs, sample_candidates, temp_dir):
+    def test_save_collage_makedirs_called(self, sample_candidates, temp_dir):
         """Test that os.makedirs is called with correct parameters."""
-        save_collage(sample_candidates, temp_dir)
-        
-        mock_makedirs.assert_called_once_with(temp_dir, exist_ok=True)
+        with patch('pixelbliss.imaging.collage.os.makedirs') as mock_makedirs:
+            save_collage(sample_candidates, temp_dir)
+            
+            mock_makedirs.assert_called_once_with(temp_dir, exist_ok=True)
 
     def test_save_collage_different_extensions(self, sample_candidates, temp_dir):
         """Test saving collage with different file extensions."""
