@@ -10,5 +10,8 @@ def generate_image(prompt: str, provider: str, model: str) -> Optional[ImageResu
     elif provider == "replicate":
         from .replicate import generate_replicate_image
         return generate_replicate_image(prompt, model)
+    elif provider == "dummy_local":
+        from .dummy_local import generate_dummy_local_image
+        return generate_dummy_local_image(prompt, model)
     else:
         raise ValueError(f"Unknown provider: {provider}")
