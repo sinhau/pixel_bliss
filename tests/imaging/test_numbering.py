@@ -240,3 +240,69 @@ class TestNumbering:
         
         assert result is not self.medium_image
         assert result.size == self.medium_image.size
+
+    @patch('pixelbliss.imaging.numbering.os.path.exists')
+    @patch('pixelbliss.imaging.numbering.ImageFont.truetype')
+    @patch('pixelbliss.imaging.numbering.ImageFont.load_default')
+    def test_add_candidate_number_to_image_font_loading_exception(self, mock_load_default, mock_truetype, mock_exists):
+        """Test font loading exception handling (lines 45-46)."""
+        mock_exists.return_value = True
+        # Mock truetype to raise OSError to trigger exception handling
+        mock_truetype.side_effect = OSError("Font loading failed")
+        # Mock load_default to return a working font as fallback
+        mock_font = Mock()
+        mock_load_default.return_value = mock_font
+        
+        with patch('pixelbliss.imaging.numbering.ImageDraw.Draw') as mock_draw_class:
+            mock_draw = Mock()
+            mock_draw_class.return_value = mock_draw
+            mock_draw.textbbox.return_value = (0, 0, 20, 15)
+            
+            result = add_candidate_number_to_image(self.medium_image, 1)
+            
+            # Should still work by falling back to default font
+            assert result is not self.medium_image
+            assert result.size == self.medium_image.size
+            mock_truetype.assert_called()
+            mock_load_default.assert_called_once()
+
+    @patch('pixelbliss.imaging.numbering.os.path.exists')
+    @patch('pixelbliss.imaging.numbering.ImageFont.truetype')
+    @patch('pixelbliss.imaging.numbering.ImageFont.load_default')
+    def test_add_candidate_number_to_image_default_font_failure(self, mock_load_default, mock_truetype, mock_exists):
+        """Test default font loading failure (lines 52-54)."""
+        mock_exists.return_value = False  # No system fonts available
+        # Mock load_default to raise exception
+        mock_load_default.side_effect = Exception("Default font loading failed")
+        
+        with patch('pixelbliss.imaging.numbering.ImageDraw.Draw') as mock_draw_class:
+            mock_draw = Mock()
+            mock_draw_class.return_value = mock_draw
+            # Mock textbbox to not be called since font is None
+            
+            result = add_candidate_number_to_image(self.medium_image, 1)
+            
+            # Should still work even without any font (font will be None)
+            assert result is not self.medium_image
+            assert result.size == self.medium_image.size
+            mock_load_default.assert_called_once()
+
+    @patch('pixelbliss.imaging.numbering.os.path.exists')
+    @patch('pixelbliss.imaging.numbering.ImageFont.truetype')
+    @patch('pixelbliss.imaging.numbering.ImageFont.load_default')
+    def test_add_candidate_number_to_image_no_font_available(self, mock_load_default, mock_truetype, mock_exists):
+        """Test text drawing without font available (line 108)."""
+        mock_exists.return_value = False  # No system fonts
+        mock_load_default.side_effect = Exception("No default font")  # Default font fails
+        
+        with patch('pixelbliss.imaging.numbering.ImageDraw.Draw') as mock_draw_class:
+            mock_draw = Mock()
+            mock_draw_class.return_value = mock_draw
+            # Mock textbbox to not be called since font is None
+            
+            # This should trigger the font = None path and the "if font:" else branch
+            result = add_candidate_number_to_image(self.medium_image, 1)
+            
+            # Should still work by estimating text size and drawing without font
+            assert result is not self.medium_image
+            assert result.size == self.medium_image.size

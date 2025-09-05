@@ -2,7 +2,7 @@ import pytest
 import datetime
 import pytz
 import asyncio
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, patch, AsyncMock, ANY
 from pixelbliss.run_once import (
     category_by_time, category_by_random, select_category,
     normalize_and_rescore, today_local, now_iso, tweet_url, fs_abs,
@@ -1624,3 +1624,170 @@ class TestAsyncPromptGeneration:
         result = await post_once(dry_run=True)
         
         assert result == 1  # Should return error code
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.generate_images_sequential')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.aesthetic.aesthetic')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
+    @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_images')
+    @patch('pixelbliss.run_once.storage.fs.save_meta')
+    @patch('pixelbliss.run_once.manifest.append')
+    @patch('pixelbliss.run_once.now_iso')
+    @patch('pixelbliss.alerts.discord_select.ask_user_to_select_raw')
+    @pytest.mark.asyncio
+    async def test_post_once_discord_human_selection_success(self, mock_discord_select, mock_iso, mock_append, mock_save_meta, mock_save_images,
+                                                     mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
+                                                     mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
+                                                     mock_aesthetic, mock_quality, mock_floors, mock_entropy, mock_brightness,
+                                                     mock_sequential, mock_variants, mock_base, mock_category, mock_config):
+        """Test post_once with Discord human selection enabled and successful selection."""
+        # Setup config with Discord enabled
+        mock_cfg = Mock()
+        mock_cfg.categories = ["test"]
+        mock_cfg.image_generation.async_enabled = False
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.prompt_generation.async_enabled = False
+        mock_cfg.prompt_generation.provider = "dummy"
+        mock_cfg.upscale.enabled = False
+        mock_cfg.discord.enabled = True  # Enable Discord for this test
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock successful image generation
+        mock_image = Mock()
+        mock_candidates = [
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"},
+            {"image": mock_image, "provider": "replicate", "model": "test2", "seed": 124, "prompt": "variant1"}
+        ]
+        mock_sequential.return_value = mock_candidates
+        
+        # Mock successful Discord selection (user selects second candidate)
+        mock_discord_select.return_value = mock_candidates[1]  # User selects second candidate
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_phash.return_value = "abc123"
+        mock_variants_wall.return_value = {"desktop": mock_image}
+        mock_alt.return_value = "alt text"
+        mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+        mock_iso.return_value = "2024-01-01T12:00:00"
+        
+        result = await post_once(dry_run=True)
+        
+        assert result == 0
+        # Verify Discord selection was called
+        mock_discord_select.assert_called_once_with(mock_candidates, mock_cfg, ANY)
+        # Verify metadata includes human selection info
+        mock_save_meta.assert_called_once()
+        saved_meta = mock_save_meta.call_args[0][1]
+        assert saved_meta["human_selection"]["enabled"] is True
+        assert saved_meta["human_selection"]["selected_rank_raw"] == 2  # Second candidate
+        assert saved_meta["human_selection"]["timeout_fallback"] is False
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.generate_images_sequential')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.aesthetic.aesthetic')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
+    @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_images')
+    @patch('pixelbliss.run_once.storage.fs.save_meta')
+    @patch('pixelbliss.run_once.manifest.append')
+    @patch('pixelbliss.run_once.now_iso')
+    @patch('pixelbliss.alerts.discord_select.ask_user_to_select_raw')
+    @pytest.mark.asyncio
+    async def test_post_once_discord_human_selection_timeout(self, mock_discord_select, mock_iso, mock_append, mock_save_meta, mock_save_images,
+                                                     mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
+                                                     mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
+                                                     mock_aesthetic, mock_quality, mock_floors, mock_entropy, mock_brightness,
+                                                     mock_sequential, mock_variants, mock_base, mock_category, mock_config):
+        """Test post_once with Discord human selection timeout fallback."""
+        # Setup config with Discord enabled
+        mock_cfg = Mock()
+        mock_cfg.categories = ["test"]
+        mock_cfg.image_generation.async_enabled = False
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.prompt_generation.async_enabled = False
+        mock_cfg.prompt_generation.provider = "dummy"
+        mock_cfg.upscale.enabled = False
+        mock_cfg.discord.enabled = True  # Enable Discord for this test
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock successful image generation
+        mock_image = Mock()
+        mock_candidates = [
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"}
+        ]
+        mock_sequential.return_value = mock_candidates
+        
+        # Mock Discord selection timeout (returns None)
+        mock_discord_select.return_value = None
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_phash.return_value = "abc123"
+        mock_variants_wall.return_value = {"desktop": mock_image}
+        mock_alt.return_value = "alt text"
+        mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+        mock_iso.return_value = "2024-01-01T12:00:00"
+        
+        result = await post_once(dry_run=True)
+        
+        assert result == 0
+        # Verify Discord selection was called
+        mock_discord_select.assert_called_once_with(mock_candidates, mock_cfg, ANY)
+        # Verify metadata includes timeout fallback info
+        mock_save_meta.assert_called_once()
+        saved_meta = mock_save_meta.call_args[0][1]
+        assert saved_meta["human_selection"]["enabled"] is True
+        assert saved_meta["human_selection"]["selected_rank_raw"] == 1  # First candidate (fallback)
+        assert saved_meta["human_selection"]["timeout_fallback"] is True
