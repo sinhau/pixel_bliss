@@ -66,24 +66,30 @@ def post_once():
     base_prompt = prompts.make_base(category, cfg)
     variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
 
-    # C) Generate 9 images
+    # C) Generate images - try FAL models first, then Replicate as fallback
     candidates = []
     for vp in variant_prompts:
-        for _ in range(cfg.generation.images_per_variant):
-            imgres = try_in_order(
-                vp,
-                cfg.generation.provider_order,
-                [cfg.generation.model_fal, cfg.generation.model_replicate],
-                cfg.generation.retries_per_image
-            )
+        # Try FAL models first
+        imgres = None
+        for model in cfg.image_generation.model_fal:
+            imgres = providers.base.generate_image(vp, "fal", model, cfg.image_generation.retries_per_image)
             if imgres:
                 candidates.append({**imgres, "prompt": vp})
+                break
+
+        # If no FAL model worked, try Replicate models
+        if not imgres:
+            for model in cfg.image_generation.model_replicate:
+                imgres = providers.base.generate_image(vp, "replicate", model, cfg.image_generation.retries_per_image)
+                if imgres:
+                    candidates.append({**imgres, "prompt": vp})
+                    break
 
     if not candidates:
         alerts.webhook.send_failure("no images produced")
         return 1
 
-    # D) Rank 9
+    # D) Rank candidates
     scored = []
     for c in candidates:
         b = metrics.brightness(c["image"])

@@ -10,12 +10,10 @@ class PromptGeneration(BaseModel):
     temperature: float = 0.8
     max_tokens: int = 400
 
-class Generation(BaseModel):
-    num_prompt_variants: int = 3
-    images_per_variant: int = 3
+class ImageGeneration(BaseModel):
     provider_order: List[str] = ["fal", "replicate"]
-    model_fal: str = "black-forest-labs/flux-1.1"
-    model_replicate: str = "black-forest-labs/flux"
+    model_fal: List[str] = ["black-forest-labs/flux-1.1"]
+    model_replicate: List[str] = ["black-forest-labs/flux"]
     retries_per_image: int = 2
 
 class Ranking(BaseModel):
@@ -47,7 +45,7 @@ class Config(BaseModel):
     categories: List[str] = ["sci-fi", "tech", "mystic", "geometry", "nature", "neo-noir", "watercolor", "cosmic-minimal"]
     rotation_minutes: int = 180
     prompt_generation: PromptGeneration = Field(default_factory=PromptGeneration)
-    generation: Generation = Field(default_factory=Generation)
+    image_generation: ImageGeneration = Field(default_factory=ImageGeneration)
     ranking: Ranking = Field(default_factory=Ranking)
     upscale: Upscale = Field(default_factory=Upscale)
     wallpaper_variants: List[WallpaperVariant] = []

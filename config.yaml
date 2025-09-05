@@ -10,11 +10,10 @@ prompt_generation:
   num_prompt_variants: 3        # 1 base -> 3 variants
   # system/style rules enforced at runtime (no real people/logos/NSFW, negative prompts, style hints)
 
-generation:
-  images_per_variant: 3         # 3 images per variant -> total 9
+image_generation:
   provider_order: ["fal", "replicate"]
-  model_fal: "fal-ai/gemini-25-flash-image"     # example id
-  model_replicate: "black-forest-labs/flux"   # example id
+  model_fal: ["fal-ai/gemini-25-flash-image", "fal-ai/flux-1.1-pro"]     # list of models to use
+  model_replicate: ["black-forest-labs/flux", "black-forest-labs/flux-dev"]   # list of models to use
   retries_per_image: 2
 
 ranking:
