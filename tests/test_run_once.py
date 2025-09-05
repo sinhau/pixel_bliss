@@ -6,8 +6,7 @@ from unittest.mock import Mock, patch, AsyncMock
 from pixelbliss.run_once import (
     category_by_time, category_by_random, select_category,
     normalize_and_rescore, today_local, now_iso, tweet_url, fs_abs,
-    try_in_order, post_once, generate_for_variant, run_all_variants,
-    generate_images_sequential
+    try_in_order, post_once, generate_images_sequential
 )
 
 
@@ -583,6 +582,8 @@ class TestAsyncImageGeneration:
     @pytest.mark.asyncio
     async def test_generate_for_variant_success_fal(self, sample_config):
         """Test generate_for_variant when FAL succeeds."""
+        from pixelbliss.run_once import generate_for_variant
+        
         mock_image = Mock()
         mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
         
@@ -597,6 +598,8 @@ class TestAsyncImageGeneration:
     @pytest.mark.asyncio
     async def test_generate_for_variant_fal_fails_replicate_succeeds(self, sample_config):
         """Test generate_for_variant when FAL fails but Replicate succeeds."""
+        from pixelbliss.run_once import generate_for_variant
+        
         mock_image = Mock()
         mock_result = {"image": mock_image, "provider": "replicate", "model": "test_model", "seed": 123}
         
@@ -611,6 +614,8 @@ class TestAsyncImageGeneration:
     @pytest.mark.asyncio
     async def test_generate_for_variant_all_fail(self, sample_config):
         """Test generate_for_variant when all providers fail."""
+        from pixelbliss.run_once import generate_for_variant
+        
         with patch('pixelbliss.providers.base.generate_image', return_value=None) as mock_generate:
             result = await generate_for_variant("test prompt", sample_config)
             
@@ -620,6 +625,8 @@ class TestAsyncImageGeneration:
     @pytest.mark.asyncio
     async def test_generate_for_variant_with_semaphore(self, sample_config):
         """Test generate_for_variant with concurrency semaphore."""
+        from pixelbliss.run_once import generate_for_variant
+        
         mock_image = Mock()
         mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
         semaphore = asyncio.Semaphore(1)
@@ -634,6 +641,8 @@ class TestAsyncImageGeneration:
     @pytest.mark.asyncio
     async def test_generate_for_variant_exception_handling(self, sample_config):
         """Test generate_for_variant handles exceptions gracefully."""
+        from pixelbliss.run_once import generate_for_variant
+        
         with patch('pixelbliss.providers.base.generate_image', side_effect=Exception("API Error")) as mock_generate:
             result = await generate_for_variant("test prompt", sample_config)
             
@@ -642,6 +651,8 @@ class TestAsyncImageGeneration:
     @pytest.mark.asyncio
     async def test_run_all_variants_success(self, sample_config):
         """Test run_all_variants with successful generation."""
+        from pixelbliss.run_once import run_all_variants
+        
         mock_image = Mock()
         mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
         
@@ -655,6 +666,8 @@ class TestAsyncImageGeneration:
     @pytest.mark.asyncio
     async def test_run_all_variants_with_concurrency_limit(self, sample_config):
         """Test run_all_variants with concurrency limit."""
+        from pixelbliss.run_once import run_all_variants
+        
         sample_config.image_generation.max_concurrency = 1
         mock_image = Mock()
         mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
@@ -669,6 +682,8 @@ class TestAsyncImageGeneration:
     @pytest.mark.asyncio
     async def test_run_all_variants_with_exceptions(self, sample_config):
         """Test run_all_variants handles variant exceptions."""
+        from pixelbliss.run_once import run_all_variants
+        
         mock_image = Mock()
         mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
         
@@ -683,6 +698,8 @@ class TestAsyncImageGeneration:
     @pytest.mark.asyncio
     async def test_run_all_variants_with_alert_failure(self, sample_config):
         """Test run_all_variants handles alert webhook failures gracefully."""
+        from pixelbliss.run_once import run_all_variants
+        
         # Mock generate_for_variant to raise an exception
         with patch('pixelbliss.run_once.generate_for_variant', side_effect=Exception("Variant Error")) as mock_generate:
             # Mock alerts.webhook.send_failure to also raise an exception
@@ -695,6 +712,8 @@ class TestAsyncImageGeneration:
     @pytest.mark.asyncio
     async def test_run_all_variants_no_concurrency_limit(self, sample_config):
         """Test run_all_variants with no concurrency limit (None)."""
+        from pixelbliss.run_once import run_all_variants
+        
         sample_config.image_generation.max_concurrency = None
         mock_image = Mock()
         mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
@@ -830,6 +849,7 @@ class TestAsyncIntegration:
     @patch('pixelbliss.run_once.prompts.make_base')
     @patch('pixelbliss.run_once.prompts.make_variants_from_base')
     @patch('pixelbliss.run_once.generate_images_sequential')
+    @patch('pixelbliss.run_once.asyncio.run')  # Mock asyncio.run to prevent warnings
     @patch('pixelbliss.run_once.metrics.brightness')
     @patch('pixelbliss.run_once.metrics.entropy')
     @patch('pixelbliss.run_once.sanity.passes_floors')
@@ -853,7 +873,7 @@ class TestAsyncIntegration:
                                     mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                     mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
                                     mock_aesthetic, mock_quality, mock_floors, mock_entropy, mock_brightness,
-                                    mock_sequential, mock_variants, mock_base, mock_category, mock_config):
+                                    mock_asyncio_run, mock_sequential, mock_variants, mock_base, mock_category, mock_config):
         """Test post_once uses sequential generation when async disabled."""
         # Setup config with async disabled
         mock_cfg = Mock()
@@ -904,12 +924,14 @@ class TestAsyncIntegration:
         
         assert result == 0
         mock_sequential.assert_called_once()  # Verify sequential path was used
+        mock_asyncio_run.assert_not_called()  # Verify async path was not used
 
     @patch('pixelbliss.run_once.config.load_config')
     @patch('pixelbliss.run_once.select_category')
     @patch('pixelbliss.run_once.prompts.make_base')
     @patch('pixelbliss.run_once.prompts.make_variants_from_base')
     @patch('pixelbliss.run_once.generate_images_sequential')
+    @patch('pixelbliss.run_once.asyncio.run')  # Mock asyncio.run to prevent warnings
     @patch('pixelbliss.run_once.metrics.brightness')
     @patch('pixelbliss.run_once.metrics.entropy')
     @patch('pixelbliss.run_once.sanity.passes_floors')
@@ -932,7 +954,7 @@ class TestAsyncIntegration:
                                                   mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                                   mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
                                                   mock_quality, mock_floors, mock_entropy, mock_brightness,
-                                                  mock_sequential, mock_variants, mock_base, mock_category, mock_config):
+                                                  mock_asyncio_run, mock_sequential, mock_variants, mock_base, mock_category, mock_config):
         """Test post_once uses sequential generation when async disabled and no image_url available."""
         # Setup config with async disabled
         mock_cfg = Mock()
@@ -984,3 +1006,4 @@ class TestAsyncIntegration:
         
         assert result == 0
         mock_sequential.assert_called_once()  # Verify sequential path was used
+        mock_asyncio_run.assert_not_called()  # Verify async path was not used
