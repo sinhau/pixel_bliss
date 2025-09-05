@@ -108,6 +108,14 @@ class ProgressLogger:
         message = f"  {Fore.CYAN}🎯{Style.RESET_ALL} Generating base prompt for category '{category}' using {provider}/{model}"
         self.logger.info(message)
     
+    def log_base_knobs_selected(self, base_knobs: dict):
+        """Log the selected base knobs for prompt generation."""
+        message = f"  {Fore.BLUE}🎛️{Style.RESET_ALL} Base knobs selected:"
+        self.logger.info(message)
+        for knob_name, knob_value in base_knobs.items():
+            knob_msg = f"    {Fore.YELLOW}•{Style.RESET_ALL} {Fore.CYAN}{knob_name}{Style.RESET_ALL}: {Fore.WHITE}{knob_value}{Style.RESET_ALL}"
+            self.logger.info(knob_msg)
+    
     def log_base_prompt_success(self, base_prompt: str, generation_time: float = None):
         """Log successful base prompt generation."""
         preview = base_prompt[:80] + "..." if len(base_prompt) > 80 else base_prompt
@@ -120,6 +128,19 @@ class ProgressLogger:
         mode_text = "parallel" if async_mode else "sequential"
         message = f"  {Fore.CYAN}🔀{Style.RESET_ALL} Generating {num_variants} prompt variants using {provider}/{model} ({mode_text} mode)"
         self.logger.info(message)
+    
+    def log_variant_knobs_selected(self, variant_knobs_list: list, strategy: str):
+        """Log the selected variant knobs for prompt generation."""
+        strategy_text = "single knob variation" if strategy == "single" else "full knob variation"
+        message = f"  {Fore.BLUE}🎛️{Style.RESET_ALL} Variant knobs selected ({strategy_text}):"
+        self.logger.info(message)
+        
+        for i, variant_knobs in enumerate(variant_knobs_list, 1):
+            variant_header = f"    {Fore.MAGENTA}Variant #{i}:{Style.RESET_ALL}"
+            self.logger.info(variant_header)
+            for knob_name, knob_value in variant_knobs.items():
+                knob_msg = f"      {Fore.YELLOW}•{Style.RESET_ALL} {Fore.CYAN}{knob_name}{Style.RESET_ALL}: {Fore.WHITE}{knob_value}{Style.RESET_ALL}"
+                self.logger.info(knob_msg)
     
     def log_variant_prompt_success(self, variant_prompts: list, generation_time: float = None):
         """Log successful variant prompt generation."""

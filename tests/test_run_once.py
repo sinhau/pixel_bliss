@@ -16,10 +16,29 @@ class TestThemeGeneration:
         """Test generate_theme_hint returns a valid theme."""
         result = generate_theme_hint()
         
-        # Should return one of the predefined themes
+        # Should return one of the predefined themes from the actual implementation
         expected_themes = [
-            "abstract", "nature", "cosmic", "geometric", "atmospheric", 
-            "minimal", "organic", "crystalline", "flowing", "luminous"
+            # keep the broad, content-agnostic originals
+            "abstract", "nature", "cosmic", "geometric", "organic", "crystalline", "flow",
+
+            # concept & idea themes (not style/mood)
+            "balance", "harmony", "unity", "duality", "symmetry", "asymmetry",
+            "cycles", "growth", "renewal", "emergence", "evolution",
+            "interconnection", "networks", "continuum", "wholeness", "infinity",
+            "order and randomness", "pattern", "repetition", "rhythm",
+
+            # math & structure (conceptual domains, not aesthetics)
+            "fractal", "spirals", "tessellation", "lattice", "grid",
+            "waveforms", "fields", "orbits", "constellations", "topography", "cartography",
+
+            # natural domains (generic, non-specific)
+            "elemental", "terrestrial", "celestial", "aquatic", "mineral",
+            "botanical", "aerial", "seasonal", "weather",
+
+            # metaphor & abstract idea spaces
+            "journey", "thresholds", "liminality", "sanctuary", "play",
+            "curiosity", "wonder", "stillness", "openness", "simplicity",
+            "order and flow", "cause and effect", "microcosm and macrocosm"
         ]
         assert result in expected_themes
 
@@ -30,10 +49,29 @@ class TestThemeGeneration:
             result = generate_theme_hint()
             results.append(result)
             
-        # All results should be valid themes
+        # All results should be valid themes from the actual implementation
         expected_themes = [
-            "abstract", "nature", "cosmic", "geometric", "atmospheric", 
-            "minimal", "organic", "crystalline", "flowing", "luminous"
+            # keep the broad, content-agnostic originals
+            "abstract", "nature", "cosmic", "geometric", "organic", "crystalline", "flow",
+
+            # concept & idea themes (not style/mood)
+            "balance", "harmony", "unity", "duality", "symmetry", "asymmetry",
+            "cycles", "growth", "renewal", "emergence", "evolution",
+            "interconnection", "networks", "continuum", "wholeness", "infinity",
+            "order and randomness", "pattern", "repetition", "rhythm",
+
+            # math & structure (conceptual domains, not aesthetics)
+            "fractal", "spirals", "tessellation", "lattice", "grid",
+            "waveforms", "fields", "orbits", "constellations", "topography", "cartography",
+
+            # natural domains (generic, non-specific)
+            "elemental", "terrestrial", "celestial", "aquatic", "mineral",
+            "botanical", "aerial", "seasonal", "weather",
+
+            # metaphor & abstract idea spaces
+            "journey", "thresholds", "liminality", "sanctuary", "play",
+            "curiosity", "wonder", "stillness", "openness", "simplicity",
+            "order and flow", "cause and effect", "microcosm and macrocosm"
         ]
         for result in results:
             assert result in expected_themes

@@ -80,6 +80,9 @@ def make_base_with_knobs(category: str, cfg: Config, progress_logger=None) -> st
     # Log the start of base prompt generation
     if progress_logger:
         progress_logger.log_base_prompt_generation(f"knobs:{category}", cfg.prompt_generation.provider, cfg.prompt_generation.model)
+        progress_logger.log_base_knobs_selected(base_knobs)
+    else:
+        logger.info(f"Base knobs selected: {base_knobs}")
     
     start_time = time.time()
     try:
@@ -133,6 +136,11 @@ def make_variants_with_knobs(base_prompt: str, k: int, cfg: Config, progress_log
     # Log the start of variant prompt generation
     if progress_logger:
         progress_logger.log_variant_prompt_generation_start(k, cfg.prompt_generation.provider, cfg.prompt_generation.model, False)
+        progress_logger.log_variant_knobs_selected(variant_knobs_list, cfg.prompt_generation.variant_strategy)
+    else:
+        logger.info(f"Variant knobs selected (strategy: {cfg.prompt_generation.variant_strategy}):")
+        for i, variant_knobs in enumerate(variant_knobs_list, 1):
+            logger.info(f"  Variant {i}: {variant_knobs}")
     
     start_time = time.time()
     try:
@@ -206,6 +214,11 @@ async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config, p
     # Log the start of variant prompt generation
     if progress_logger:
         progress_logger.log_variant_prompt_generation_start(k, cfg.prompt_generation.provider, cfg.prompt_generation.model, True)
+        progress_logger.log_variant_knobs_selected(variant_knobs_list, cfg.prompt_generation.variant_strategy)
+    else:
+        logger.info(f"Variant knobs selected (strategy: {cfg.prompt_generation.variant_strategy}):")
+        for i, variant_knobs in enumerate(variant_knobs_list, 1):
+            logger.info(f"  Variant {i}: {variant_knobs}")
     
     start_time = time.time()
     try:

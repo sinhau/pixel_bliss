@@ -87,7 +87,8 @@ class TestPrompts:
             
             assert result == "base prompt"
             mock_provider.make_base_with_knobs.assert_called_once_with({"vibe": "dreamlike", "palette": "warm"}, ["harsh", "neon"])
-            mock_logger.info.assert_called_once()
+            # Now we expect 2 info calls: one for knobs selection, one for success
+            assert mock_logger.info.call_count == 2
             mock_logger.debug.assert_called_once()
 
     @patch('pixelbliss.prompts.get_provider')
@@ -145,7 +146,8 @@ class TestPrompts:
             
             assert result == ["variant1", "variant2"]
             mock_provider.make_variants_with_knobs.assert_called_once()
-            mock_logger.info.assert_called_once()
+            # Now we expect 4 info calls: strategy header + 2 variants + success
+            assert mock_logger.info.call_count == 4
             mock_logger.debug.assert_called()  # Should be called for each variant
             assert mock_logger.debug.call_count == 2
 
@@ -178,7 +180,8 @@ class TestPrompts:
             
             assert result == ["variant1", "variant2"]
             mock_provider.make_variants_with_knobs.assert_called_once()
-            mock_logger.info.assert_called_once()
+            # Now we expect 4 info calls: strategy header + 2 variants + success
+            assert mock_logger.info.call_count == 4
 
     @patch('pixelbliss.prompts.get_provider')
     @patch('pixelbliss.prompts.KnobSelector.select_single_variant_knob')
@@ -239,7 +242,8 @@ class TestPrompts:
             
             assert result == ["async_variant1", "async_variant2"]
             mock_provider.make_variants_with_knobs_async.assert_called_once()
-            mock_logger.info.assert_called_once()
+            # Now we expect 4 info calls: strategy header + 2 variants + success
+            assert mock_logger.info.call_count == 4
 
     @pytest.mark.asyncio
     @patch('pixelbliss.prompts.get_provider')
@@ -277,7 +281,8 @@ class TestPrompts:
             
             assert result == ["sync_variant1", "sync_variant2"]
             mock_to_thread.assert_called_once()
-            mock_logger.info.assert_called_once()
+            # Now we expect 4 info calls: strategy header + 2 variants + success
+            assert mock_logger.info.call_count == 4
 
     @pytest.mark.asyncio
     @patch('pixelbliss.prompts.get_provider')
