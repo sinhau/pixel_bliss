@@ -5,12 +5,12 @@ categories: [ "sci-fi", "tech", "mystic", "geometry", "nature", "neo-noir", "wat
 rotation_minutes: 180   # category index = floor(now_min / rotation_minutes) % len(categories)
 
 prompt_generation:
-  provider: "openai"        # openai | dummy
+  provider: "dummy"        # openai | dummy
   model: "gpt-5"            # default model for base prompt, variants, and alt text
+  num_prompt_variants: 3        # 1 base -> 3 variants
   # system/style rules enforced at runtime (no real people/logos/NSFW, negative prompts, style hints)
 
 generation:
-  num_prompt_variants: 3        # 1 base -> 3 variants
   images_per_variant: 3         # 3 images per variant -> total 9
   provider_order: ["fal", "replicate"]
   model_fal: "black-forest-labs/flux-1.1"     # example id

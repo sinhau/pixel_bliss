@@ -64,7 +64,7 @@ def post_once():
 
     # B) Base prompt -> 3 prompt variants
     base_prompt = prompts.make_base(category, cfg)
-    variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.generation.num_prompt_variants, cfg)
+    variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
 
     # C) Generate 9 images
     candidates = []
