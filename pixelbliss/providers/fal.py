@@ -42,7 +42,8 @@ def _generate_fal_image_with_retry(prompt: str, model: str) -> ImageResult:
         "image": image,
         "provider": "fal",
         "model": model,
-        "seed": seed
+        "seed": seed,
+        "image_url": image_url
     }
 
 def generate_fal_image(prompt: str, model: str) -> Optional[ImageResult]:

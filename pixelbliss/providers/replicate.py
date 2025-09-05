@@ -27,7 +27,8 @@ def _generate_replicate_image_with_retry(prompt: str, model: str) -> ImageResult
         "image": image,
         "provider": "replicate",
         "model": model,
-        "seed": seed
+        "seed": seed,
+        "image_url": image_url
     }
 
 def generate_replicate_image(prompt: str, model: str) -> Optional[ImageResult]:
