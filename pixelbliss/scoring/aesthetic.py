@@ -150,13 +150,14 @@ async def aesthetic_async(image_url: str, cfg: Config) -> float:
     else:
         raise NotImplementedError(f"Unknown provider {provider}")
 
-async def score_candidates_parallel(candidates: list, cfg: Config) -> list:
+async def score_candidates_parallel(candidates: list, cfg: Config, progress_logger=None) -> list:
     """
     Score multiple candidates in parallel using async aesthetic scoring.
     
     Args:
         candidates: List of candidate dictionaries with image_url
         cfg: Configuration object containing aesthetic scoring and async settings
+        progress_logger: Optional progress logger for tracking scoring progress
     
     Returns:
         list: Updated candidates with aesthetic scores added
@@ -166,15 +167,30 @@ async def score_candidates_parallel(candidates: list, cfg: Config) -> list:
     if cfg.image_generation.max_concurrency:
         semaphore = asyncio.Semaphore(cfg.image_generation.max_concurrency)
     
+    # Start progress tracking
+    if progress_logger:
+        progress_logger.start_operation("aesthetic_scoring", len(candidates), "parallel aesthetic scoring")
+    
     async def score_single_candidate(candidate):
         async def _score():
-            image_url = candidate.get("image_url")
-            if image_url:
-                score = await aesthetic_async(image_url, cfg)
-            else:
-                score = 0.5
-            candidate["aesthetic"] = score
-            return candidate
+            try:
+                image_url = candidate.get("image_url")
+                if image_url:
+                    score = await aesthetic_async(image_url, cfg)
+                else:
+                    score = 0.5
+                candidate["aesthetic"] = score
+                
+                # Update progress
+                if progress_logger:
+                    progress_logger.update_operation_progress("aesthetic_scoring")
+                
+                return candidate
+            except Exception as e:
+                # Update progress even on failure
+                if progress_logger:
+                    progress_logger.update_operation_progress("aesthetic_scoring")
+                raise e
         
         if semaphore:
             async with semaphore:
@@ -184,4 +200,26 @@ async def score_candidates_parallel(candidates: list, cfg: Config) -> list:
     
     # Score all candidates in parallel
     tasks = [score_single_candidate(c) for c in candidates]
-    return await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Handle results and exceptions
+    scored_candidates = []
+    failed_count = 0
+    
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            # Use fallback score for failed candidates
+            candidates[i]["aesthetic"] = 0.5
+            scored_candidates.append(candidates[i])
+            failed_count += 1
+        else:
+            scored_candidates.append(result)
+    
+    # Finish progress tracking
+    if progress_logger:
+        success = failed_count == 0
+        progress_logger.finish_operation("aesthetic_scoring", success)
+        if failed_count > 0:
+            progress_logger.warning(f"{failed_count} aesthetic scores used fallback values")
+    
+    return scored_candidates

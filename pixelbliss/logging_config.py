@@ -35,6 +35,8 @@ class ProgressLogger:
         self.logger = logger
         self._step_count = 0
         self._total_steps = 0
+        self._current_operation = None
+        self._operation_progress = {}
     
     def start_pipeline(self, total_steps: int):
         """Initialize pipeline progress tracking."""
@@ -87,6 +89,70 @@ class ProgressLogger:
         if details:
             message += f" {Fore.WHITE}({details}){Style.RESET_ALL}"
         self.logger.error(message)
+    
+    def start_operation(self, operation_name: str, total_items: int, description: str = None):
+        """Start tracking progress for a parallel operation."""
+        self._current_operation = operation_name
+        self._operation_progress[operation_name] = {
+            'completed': 0,
+            'total': total_items,
+            'description': description or operation_name
+        }
+        
+        desc = description or operation_name
+        message = f"  {Fore.BLUE}🔄{Style.RESET_ALL} Starting {desc} ({total_items} items)"
+        self.logger.info(message)
+    
+    def update_operation_progress(self, operation_name: str, completed: int = None, increment: int = 1):
+        """Update progress for a parallel operation."""
+        if operation_name not in self._operation_progress:
+            return
+        
+        progress = self._operation_progress[operation_name]
+        
+        if completed is not None:
+            progress['completed'] = completed
+        else:
+            progress['completed'] += increment
+        
+        # Create progress bar for this operation
+        total = progress['total']
+        current = min(progress['completed'], total)  # Ensure we don't exceed total
+        percentage = (current / total) * 100 if total > 0 else 0
+        
+        # Visual progress bar
+        bar_length = 15
+        filled = int((current / total) * bar_length) if total > 0 else 0
+        bar = "█" * filled + "░" * (bar_length - filled)
+        
+        # Status indicator
+        if current == total:
+            status_icon = f"{Fore.GREEN}✓{Style.RESET_ALL}"
+        else:
+            status_icon = f"{Fore.YELLOW}⏳{Style.RESET_ALL}"
+        
+        message = f"  {status_icon} {progress['description']}: {Fore.CYAN}{bar}{Style.RESET_ALL} {current}/{total} ({percentage:.0f}%)"
+        self.logger.info(message)
+    
+    def finish_operation(self, operation_name: str, success: bool = True):
+        """Finish tracking progress for a parallel operation."""
+        if operation_name not in self._operation_progress:
+            return
+        
+        progress = self._operation_progress[operation_name]
+        
+        if success:
+            # Ensure we show 100% completion
+            self.update_operation_progress(operation_name, completed=progress['total'])
+            message = f"  {Fore.GREEN}✅{Style.RESET_ALL} {progress['description']} completed successfully"
+        else:
+            message = f"  {Fore.RED}❌{Style.RESET_ALL} {progress['description']} failed"
+        
+        self.logger.info(message)
+        
+        # Clean up if this was the current operation
+        if self._current_operation == operation_name:
+            self._current_operation = None
     
     def finish_pipeline(self, success: bool = True):
         """Finish pipeline progress tracking."""

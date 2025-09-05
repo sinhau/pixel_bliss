@@ -70,7 +70,7 @@ def make_alt_text(base_prompt: str, variant_prompt: str, cfg: Config) -> str:
     provider = get_provider(cfg)
     return provider.make_alt_text(base_prompt, variant_prompt)
 
-async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config) -> list[str]:
+async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config, progress_logger=None) -> list[str]:
     """
     Generate k variations of a base prompt in parallel.
     
@@ -78,6 +78,7 @@ async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config) -
         base_prompt: The original prompt to create variations from.
         k: Number of variations to generate.
         cfg: Configuration object containing prompt generation settings.
+        progress_logger: Optional progress logger for tracking generation progress.
         
     Returns:
         list[str]: List of k prompt variations.
@@ -90,13 +91,24 @@ async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config) -
             base_prompt, 
             k, 
             cfg.art_styles, 
-            cfg.prompt_generation.max_concurrency
+            cfg.prompt_generation.max_concurrency,
+            progress_logger
         )
     else:
-        # Fallback to synchronous generation
-        return await asyncio.to_thread(
-            provider.make_variants_from_base, 
-            base_prompt, 
-            k, 
-            cfg.art_styles
-        )
+        # Fallback to synchronous generation with progress tracking
+        if progress_logger:
+            progress_logger.start_operation("prompt_generation", k, "sequential prompt generation")
+        
+        async def generate_with_progress():
+            result = await asyncio.to_thread(
+                provider.make_variants_from_base, 
+                base_prompt, 
+                k, 
+                cfg.art_styles
+            )
+            if progress_logger:
+                progress_logger.update_operation_progress("prompt_generation", completed=k)
+                progress_logger.finish_operation("prompt_generation", success=True)
+            return result
+        
+        return await generate_with_progress()

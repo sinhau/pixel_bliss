@@ -95,7 +95,7 @@ class OpenAIGPT5Provider(PromptProvider):
         
         return response.choices[0].message.content.strip()
 
-    async def make_variants_from_base_async(self, base_prompt: str, k: int, art_styles: List[str] = None, max_concurrency: Optional[int] = None) -> List[str]:
+    async def make_variants_from_base_async(self, base_prompt: str, k: int, art_styles: List[str] = None, max_concurrency: Optional[int] = None, progress_logger=None) -> List[str]:
         """
         Generate k variations of a base prompt in parallel using OpenAI GPT-5.
         
@@ -104,6 +104,7 @@ class OpenAIGPT5Provider(PromptProvider):
             k: Number of variations to generate.
             art_styles: List of art styles to randomly select from for each variant.
             max_concurrency: Maximum number of concurrent API calls. None means no limit.
+            progress_logger: Optional progress logger for tracking generation progress.
             
         Returns:
             List[str]: List of k prompt variations with different styles and elements.
@@ -114,16 +115,32 @@ class OpenAIGPT5Provider(PromptProvider):
         
         semaphore = asyncio.Semaphore(max_concurrency) if max_concurrency > 0 else None
         
+        # Start progress tracking
+        if progress_logger:
+            progress_logger.start_operation("prompt_generation", k, "parallel prompt generation")
+        
         # Pre-select art styles for each variant to ensure deterministic results
         selected_styles = []
         for _ in range(k):
             selected_style = random.choice(art_styles) if art_styles else "artistic style"
             selected_styles.append(selected_style)
         
+        # Create wrapper function that updates progress
+        async def generate_with_progress(index: int, base_prompt: str, style: str, semaphore: Optional[asyncio.Semaphore]):
+            try:
+                result = await self._generate_single_variant_async(base_prompt, style, semaphore)
+                if progress_logger:
+                    progress_logger.update_operation_progress("prompt_generation")
+                return result
+            except Exception as e:
+                if progress_logger:
+                    progress_logger.update_operation_progress("prompt_generation")
+                raise e
+        
         # Create tasks for all variants
         tasks = [
-            asyncio.create_task(self._generate_single_variant_async(base_prompt, style, semaphore))
-            for style in selected_styles
+            asyncio.create_task(generate_with_progress(i, base_prompt, style, semaphore))
+            for i, style in enumerate(selected_styles)
         ]
         
         # Execute all tasks in parallel
@@ -131,14 +148,23 @@ class OpenAIGPT5Provider(PromptProvider):
         
         # Handle results and exceptions
         variants = []
+        failed_count = 0
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 # Log error but continue with other variants
                 # For now, we'll use a fallback variant
                 fallback_variant = f"{base_prompt} in {selected_styles[i]} style"
                 variants.append(fallback_variant)
+                failed_count += 1
             else:
                 variants.append(result)
+        
+        # Finish progress tracking
+        if progress_logger:
+            success = failed_count == 0
+            progress_logger.finish_operation("prompt_generation", success)
+            if failed_count > 0:
+                progress_logger.warning(f"{failed_count} prompt variants used fallback generation")
         
         return variants
 

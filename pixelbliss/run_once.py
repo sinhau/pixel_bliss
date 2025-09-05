@@ -154,7 +154,7 @@ def fs_abs(path: str) -> str:
     """
     return path  # Assuming relative to web root
 
-async def generate_for_variant(variant_prompt: str, cfg: Config, semaphore: Optional[asyncio.Semaphore] = None) -> List[Dict[str, Any]]:
+async def generate_for_variant(variant_prompt: str, cfg: Config, semaphore: Optional[asyncio.Semaphore] = None, progress_logger=None, variant_index: int = 0) -> List[Dict[str, Any]]:
     """
     Generate images for a single prompt variant, trying FAL first then Replicate fallback per model index.
     
@@ -162,6 +162,8 @@ async def generate_for_variant(variant_prompt: str, cfg: Config, semaphore: Opti
         variant_prompt: The prompt variant to generate images for.
         cfg: Configuration object containing provider and model settings.
         semaphore: Optional semaphore to limit concurrent API calls.
+        progress_logger: Optional progress logger for tracking generation progress.
+        variant_index: Index of this variant for progress tracking.
         
     Returns:
         List[Dict[str, Any]]: List of successful image candidates for this variant.
@@ -169,75 +171,88 @@ async def generate_for_variant(variant_prompt: str, cfg: Config, semaphore: Opti
     logger = get_logger('generation')
     candidates = []
     
-    # Loop through models by index, trying FAL first then Replicate fallback for same index
-    for i in range(len(cfg.image_generation.model_fal)):
-        try:
-            # Try FAL model at index i
-            fal_model = cfg.image_generation.model_fal[i]
-            fal_provider = cfg.image_generation.provider_order[0]
-            
-            logger.debug(f"Trying {fal_provider}/{fal_model} for variant: {variant_prompt[:50]}...")
-            
-            if semaphore:
-                async with semaphore:
-                    imgres = await asyncio.to_thread(
-                        providers.base.generate_image, 
-                        variant_prompt, 
-                        fal_provider, 
-                        fal_model
-                    )
-            else:
-                imgres = await asyncio.to_thread(
-                    providers.base.generate_image, 
-                    variant_prompt, 
-                    fal_provider, 
-                    fal_model
-                )
-            
-            # If FAL failed and we have a corresponding Replicate model, try it
-            if not imgres and i < len(cfg.image_generation.model_replicate):
-                replicate_model = cfg.image_generation.model_replicate[i]
-                replicate_provider = cfg.image_generation.provider_order[1]
+    try:
+        # Loop through models by index, trying FAL first then Replicate fallback for same index
+        for i in range(len(cfg.image_generation.model_fal)):
+            try:
+                # Try FAL model at index i
+                fal_model = cfg.image_generation.model_fal[i]
+                fal_provider = cfg.image_generation.provider_order[0]
                 
-                logger.debug(f"FAL failed, trying {replicate_provider}/{replicate_model}")
+                logger.debug(f"Trying {fal_provider}/{fal_model} for variant: {variant_prompt[:50]}...")
                 
                 if semaphore:
                     async with semaphore:
                         imgres = await asyncio.to_thread(
                             providers.base.generate_image, 
                             variant_prompt, 
-                            replicate_provider, 
-                            replicate_model
+                            fal_provider, 
+                            fal_model
                         )
                 else:
                     imgres = await asyncio.to_thread(
                         providers.base.generate_image, 
                         variant_prompt, 
-                        replicate_provider, 
-                        replicate_model
+                        fal_provider, 
+                        fal_model
                     )
-            
-            # Add image candidate if available
-            if imgres:
-                logger.debug(f"Successfully generated image with {imgres['provider']}/{imgres['model']}")
-                candidates.append({**imgres, "prompt": variant_prompt})
                 
-        except Exception as e:
-            # Log the error but continue with other model indices
-            # This ensures one failing model doesn't stop the entire variant
-            logger.warning(f"Error generating image for variant '{variant_prompt[:50]}...' with model index {i}: {e}")
-            continue
-    
-    logger.debug(f"Generated {len(candidates)} candidates for variant")
-    return candidates
+                # If FAL failed and we have a corresponding Replicate model, try it
+                if not imgres and i < len(cfg.image_generation.model_replicate):
+                    replicate_model = cfg.image_generation.model_replicate[i]
+                    replicate_provider = cfg.image_generation.provider_order[1]
+                    
+                    logger.debug(f"FAL failed, trying {replicate_provider}/{replicate_model}")
+                    
+                    if semaphore:
+                        async with semaphore:
+                            imgres = await asyncio.to_thread(
+                                providers.base.generate_image, 
+                                variant_prompt, 
+                                replicate_provider, 
+                                replicate_model
+                            )
+                    else:
+                        imgres = await asyncio.to_thread(
+                            providers.base.generate_image, 
+                            variant_prompt, 
+                            replicate_provider, 
+                            replicate_model
+                        )
+                
+                # Add image candidate if available
+                if imgres:
+                    logger.debug(f"Successfully generated image with {imgres['provider']}/{imgres['model']}")
+                    candidates.append({**imgres, "prompt": variant_prompt})
+                    
+            except Exception as e:
+                # Log the error but continue with other model indices
+                # This ensures one failing model doesn't stop the entire variant
+                logger.warning(f"Error generating image for variant '{variant_prompt[:50]}...' with model index {i}: {e}")
+                continue
+        
+        logger.debug(f"Generated {len(candidates)} candidates for variant")
+        
+        # Update progress
+        if progress_logger:
+            progress_logger.update_operation_progress("image_generation")
+        
+        return candidates
+        
+    except Exception as e:
+        # Update progress even on failure
+        if progress_logger:
+            progress_logger.update_operation_progress("image_generation")
+        raise e
 
-async def run_all_variants(variant_prompts: List[str], cfg: Config) -> List[Dict[str, Any]]:
+async def run_all_variants(variant_prompts: List[str], cfg: Config, progress_logger=None) -> List[Dict[str, Any]]:
     """
     Generate images for all prompt variants in parallel.
     
     Args:
         variant_prompts: List of prompt variants to generate images for.
         cfg: Configuration object containing provider and model settings.
+        progress_logger: Optional progress logger for tracking generation progress.
         
     Returns:
         List[Dict[str, Any]]: Flattened list of all successful image candidates.
@@ -251,12 +266,16 @@ async def run_all_variants(variant_prompts: List[str], cfg: Config) -> List[Dict
     
     logger.info(f"Starting parallel generation for {len(variant_prompts)} variants (max_concurrency: {max_concurrency})")
     
+    # Start progress tracking
+    if progress_logger:
+        progress_logger.start_operation("image_generation", len(variant_prompts), "parallel image generation")
+    
     semaphore = asyncio.Semaphore(max_concurrency) if max_concurrency > 0 else None
     
     # Create tasks for all variants
     tasks = [
-        asyncio.create_task(generate_for_variant(vp, cfg, semaphore)) 
-        for vp in variant_prompts
+        asyncio.create_task(generate_for_variant(vp, cfg, semaphore, progress_logger, i)) 
+        for i, vp in enumerate(variant_prompts)
     ]
     
     # Execute all tasks in parallel
@@ -279,6 +298,13 @@ async def run_all_variants(variant_prompts: List[str], cfg: Config) -> List[Dict
             # result is a list of candidates for this variant
             candidates.extend(result)
             logger.debug(f"Variant {i+1} produced {len(result)} candidates")
+    
+    # Finish progress tracking
+    if progress_logger:
+        success = failed_variants == 0
+        progress_logger.finish_operation("image_generation", success)
+        if failed_variants > 0:
+            progress_logger.warning(f"{failed_variants} image generation variants failed")
     
     logger.info(f"Parallel generation completed: {len(candidates)} total candidates, {failed_variants} failed variants")
     return candidates
@@ -367,7 +393,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         logger.info(f"Starting prompt variant generation (async: {cfg.prompt_generation.async_enabled})")
         if cfg.prompt_generation.async_enabled:
             progress_logger.substep("Using parallel prompt generation")
-            variant_prompts = await prompts.make_variants_from_base_async(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
+            variant_prompts = await prompts.make_variants_from_base_async(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg, progress_logger)
         else:
             progress_logger.substep("Using sequential prompt generation")
             variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
@@ -383,7 +409,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         
         if cfg.image_generation.async_enabled:
             progress_logger.substep("Using parallel generation")
-            candidates = asyncio.run(run_all_variants(variant_prompts, cfg))
+            candidates = await run_all_variants(variant_prompts, cfg, progress_logger)
         else:
             progress_logger.substep("Using sequential generation")
             candidates = generate_images_sequential(variant_prompts, cfg)
@@ -437,7 +463,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             progress_logger.substep("Computing aesthetic scores")
             if cfg.image_generation.async_enabled:
                 logger.debug("Using parallel aesthetic scoring")
-                scored = asyncio.run(aesthetic.score_candidates_parallel(scored, cfg))
+                scored = await aesthetic.score_candidates_parallel(scored, cfg, progress_logger)
             else:
                 logger.debug("Using sequential aesthetic scoring")
                 for c in scored:

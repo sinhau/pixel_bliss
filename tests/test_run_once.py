@@ -790,7 +790,7 @@ class TestAsyncIntegration:
     @patch('pixelbliss.run_once.select_category')
     @patch('pixelbliss.run_once.prompts.make_base')
     @patch('pixelbliss.run_once.prompts.make_variants_from_base')
-    @patch('pixelbliss.run_once.asyncio.run')
+    @patch('pixelbliss.run_once.run_all_variants')
     @patch('pixelbliss.run_once.metrics.brightness')
     @patch('pixelbliss.run_once.metrics.entropy')
     @patch('pixelbliss.run_once.sanity.passes_floors')
@@ -815,7 +815,7 @@ class TestAsyncIntegration:
                                    mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                    mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
                                    mock_score_parallel, mock_quality, mock_floors, mock_entropy, mock_brightness,
-                                   mock_asyncio_run, mock_variants, mock_base, mock_category, mock_config):
+                                   mock_run_variants, mock_variants, mock_base, mock_category, mock_config):
         """Test post_once uses async generation when enabled."""
         # Setup config with async enabled
         mock_cfg = Mock()
@@ -824,10 +824,12 @@ class TestAsyncIntegration:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.image_generation.max_concurrency = 2  # Set to actual integer
         mock_cfg.prompt_generation.num_prompt_variants = 2
         mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
         mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.upscale.enabled = False
+        mock_cfg.alerts.webhook_url_env = "WEBHOOK_URL"  # Set to actual string
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -838,35 +840,21 @@ class TestAsyncIntegration:
         # Mock async generation result
         mock_image = Mock()
         mock_candidates = [
-            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"},
-            {"image": mock_image, "provider": "fal", "model": "test", "seed": 124, "prompt": "variant2"}
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "brightness": 150, "entropy": 4.5, "local_quality": 0.8},
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 124, "prompt": "variant2", "brightness": 150, "entropy": 4.5, "local_quality": 0.8}
         ]
         
-        # Mock asyncio.run to return candidates for image generation, and scored candidates for aesthetic scoring
-        def mock_asyncio_side_effect(coro):
-            # First call is for image generation
-            if mock_asyncio_run.call_count == 0:
-                return mock_candidates
-            # Second call is for aesthetic scoring - return the same candidates with aesthetic scores
-            else:
-                return [
-                    {**c, "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8} 
-                    for c in mock_candidates
-                ]
-        
-        mock_asyncio_run.side_effect = mock_asyncio_side_effect
+        # Mock the async functions
+        mock_run_variants.return_value = mock_candidates
+        mock_score_parallel.return_value = [
+            {**c, "aesthetic": 0.7} for c in mock_candidates
+        ]
         
         # Mock scoring to pass all checks
         mock_brightness.return_value = 150
         mock_entropy.return_value = 4.5
         mock_floors.return_value = True
         mock_quality.return_value = (True, 0.8)
-        
-        # Mock parallel aesthetic scoring to return candidates with aesthetic scores
-        mock_score_parallel.return_value = [
-            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8},
-            {"image": mock_image, "provider": "fal", "model": "test", "seed": 124, "prompt": "variant2", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}
-        ]
         
         # Mock rescoring
         mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
@@ -887,8 +875,9 @@ class TestAsyncIntegration:
         result = await post_once(dry_run=True)
         
         assert result == 0
-        # Verify async path was used - should be called twice (image generation + aesthetic scoring)
-        assert mock_asyncio_run.call_count == 2
+        # Verify async path was used
+        mock_run_variants.assert_called_once()
+        mock_score_parallel.assert_called_once()
 
     @patch('pixelbliss.run_once.config.load_config')
     @patch('pixelbliss.run_once.select_category')
@@ -1006,7 +995,7 @@ class TestAsyncPromptGeneration:
             
             assert result == ["variant1", "variant2", "variant3"]
             mock_provider.make_variants_from_base_async.assert_called_once_with(
-                "base prompt", 3, cfg.art_styles, cfg.prompt_generation.max_concurrency
+                "base prompt", 3, cfg.art_styles, cfg.prompt_generation.max_concurrency, None
             )
 
     @pytest.mark.asyncio
@@ -1034,7 +1023,7 @@ class TestAsyncPromptGeneration:
             
             assert result == ["dummy variant1", "dummy variant2"]
             mock_provider.make_variants_from_base_async.assert_called_once_with(
-                "base prompt", 2, cfg.art_styles, cfg.prompt_generation.max_concurrency
+                "base prompt", 2, cfg.art_styles, cfg.prompt_generation.max_concurrency, None
             )
 
     @pytest.mark.asyncio
