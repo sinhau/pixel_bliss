@@ -9,4 +9,4 @@ tweepy
 replicate
 pytz
 PyYAML
-# fal_client  # hypothetical, assume installed separately
+fal_client

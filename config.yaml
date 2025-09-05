@@ -13,7 +13,7 @@ prompt_generation:
 generation:
   images_per_variant: 3         # 3 images per variant -> total 9
   provider_order: ["fal", "replicate"]
-  model_fal: "black-forest-labs/flux-1.1"     # example id
+  model_fal: "fal-ai/gemini-25-flash-image"     # example id
   model_replicate: "black-forest-labs/flux"   # example id
   retries_per_image: 2
 
