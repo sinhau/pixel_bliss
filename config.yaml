@@ -32,7 +32,7 @@ ranking:
 
 aesthetic_scoring:
   provider: "replicate"
-  model: "laion/aesthetic-predictor:v2-14"  # Example aesthetic scoring model
+  model: "methexis-inc/img2aestheticscore:ec5029694b29e51fa9e5b794d73ba8103569d5d3ef3d60b7a8fdef18b9997b90"  # Example aesthetic scoring model
 
 upscale:
   enabled: true

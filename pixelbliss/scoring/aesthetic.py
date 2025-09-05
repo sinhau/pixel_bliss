@@ -26,10 +26,31 @@ def aesthetic(image_url: str, cfg: Config) -> float:
         elif isinstance(output, (int, float)):
             score = output
         else:
-            score = 0.5
+            raise Exception(f"Unsupported aesthetic score output format: {output}")
             
-        # Ensure score is in [0,1] range
-        return min(max(float(score), 0.0), 1.0)
+        # Normalize score to [0,1] range
+        score = float(score)
+        
+        # Handle common score ranges from different aesthetic models
+        if score >= 0 and score <= 1:
+            # Already in [0,1] range
+            normalized_score = score
+        elif score >= 0 and score <= 10:
+            # Scale from [0,10] to [0,1]
+            normalized_score = score / 10.0
+        elif score >= 1 and score <= 5:
+            # Scale from [1,5] to [0,1]
+            normalized_score = (score - 1) / 4.0
+        elif score >= -1 and score <= 1:
+            # Scale from [-1,1] to [0,1]
+            normalized_score = (score + 1) / 2.0
+        else:
+            # For any other range, use sigmoid-like normalization
+            # This maps any real number to [0,1] range
+            import math
+            normalized_score = 1 / (1 + math.exp(-score))
+        
+        return min(max(normalized_score, 0.0), 1.0)
         
     except Exception as e:
         print(f"Replicate aesthetic scoring failed: {e}")
