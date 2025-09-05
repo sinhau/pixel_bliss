@@ -21,16 +21,17 @@ class OpenAIGPT5Provider(PromptProvider):
         self.async_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-    def make_base_with_knobs(self, base_knobs: Dict[str, str], avoid_list: List[str] = None) -> str:
+    def make_base_with_knobs(self, base_knobs: Dict[str, str], avoid_list: List[str] = None, theme: str = None) -> str:
         """
-        Generate a base prompt using the new knobs system.
+        Generate a base prompt using the new knobs system with theme integration.
         
         Args:
             base_knobs: Dictionary containing selected values for each base knob category
             avoid_list: List of elements to avoid in the generated prompt
+            theme: Theme/category hint that describes what the image will be about
             
         Returns:
-            str: Generated base prompt incorporating all knob values
+            str: Generated base prompt incorporating theme and all knob values
         """
         # Format the knobs into a structured prompt with clear categorization
         knobs_sections = {
@@ -51,6 +52,11 @@ class OpenAIGPT5Provider(PromptProvider):
         if avoid_list:
             avoid_text = f"\n\nSTRICTLY AVOID: {', '.join(avoid_list)}"
         
+        # Include theme as a high-priority input if provided
+        theme_text = ""
+        if theme:
+            theme_text = f"\n\n🎯 PRIMARY THEME/CONCEPT: {theme}\nThis theme should be the central focus and subject matter of the image. All aesthetic elements should support and enhance this core concept."
+        
         system_prompt = (
             "You are PixelBliss, an expert AI prompt architect specializing in creating wallpaper art that induces profound visual pleasure, "
             "sparks joy, evokes calm, and inspires aesthetic wonder. Your mission is to generate images that serve as visual sanctuaries—"
@@ -62,8 +68,9 @@ class OpenAIGPT5Provider(PromptProvider):
             "• Design compositions that feel like visual poetry—harmonious, balanced, emotionally resonant\n"
             "• Craft prompts that result in images people want to live with daily as wallpapers\n\n"
             
-            "KNOB INTEGRATION MASTERY:\n"
-            "You will receive 6 aesthetic control knobs that must be seamlessly woven into a cohesive vision:\n"
+            "THEME + KNOB INTEGRATION MASTERY:\n"
+            "You will receive a PRIMARY THEME that defines what the image is about, plus 6 aesthetic control knobs:\n"
+            "• PRIMARY THEME - The core subject matter, concept, or content focus (HIGHEST PRIORITY)\n"
             "1. Emotional Vibe - The feeling and mood the image should evoke\n"
             "2. Color Palette - The specific color harmony and relationships\n"
             "3. Lighting Quality - The character and behavior of light in the scene\n"
@@ -72,7 +79,8 @@ class OpenAIGPT5Provider(PromptProvider):
             "6. Artistic Style - The rendering technique and aesthetic approach\n\n"
             
             "PROMPT CRAFTING EXCELLENCE:\n"
-            "• Synthesize all knob values into a unified, poetic description\n"
+            "• Start with the PRIMARY THEME as the foundation - this defines WHAT the image shows\n"
+            "• Weave all knob values into a unified vision that supports the theme\n"
             "• Use rich, evocative language that guides AI image generation\n"
             "• Include specific technical details for optimal rendering\n"
             "• Balance artistic vision with technical precision\n"
@@ -87,11 +95,13 @@ class OpenAIGPT5Provider(PromptProvider):
         )
         
         user_prompt = (
-            f"Create a masterful wallpaper prompt that weaves these aesthetic elements into a cohesive vision of beauty:\n\n"
+            f"Create a masterful wallpaper prompt that centers around the given theme and weaves the aesthetic elements into a cohesive vision of beauty:{theme_text}\n\n"
+            f"AESTHETIC CONTROL KNOBS:\n"
             f"{chr(10).join(knobs_description)}\n\n"
             f"Generate a detailed, poetic prompt that will result in an image that induces visual pleasure, sparks joy, "
             f"evokes calm, and creates a sense of aesthetic wonder. The image should feel like a visual sanctuary—"
-            f"something someone would choose as their daily wallpaper because it brings them peace and inspiration.{avoid_text}"
+            f"something someone would choose as their daily wallpaper because it brings them peace and inspiration. "
+            f"Remember: the theme defines WHAT the image shows, while the knobs define HOW it looks and feels.{avoid_text}"
         )
 
         response = self.client.chat.completions.create(

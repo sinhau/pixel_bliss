@@ -60,15 +60,15 @@ def make_variants_from_base(base_prompt: str, k: int, cfg: Config, progress_logg
 
 def make_base_with_knobs(category: str, cfg: Config, progress_logger=None) -> str:
     """
-    Generate a base prompt using the new knobs system.
+    Generate a base prompt using the new knobs system with theme integration.
     
     Args:
-        category: The category/theme hint for knob selection (optional, for future use).
+        category: The category/theme hint that describes what the image will be about.
         cfg: Configuration object containing prompt generation settings.
         progress_logger: Optional progress logger for tracking generation progress.
         
     Returns:
-        str: Generated base prompt using diverse aesthetic knobs.
+        str: Generated base prompt using diverse aesthetic knobs and theme.
     """
     logger = get_logger('prompts')
     provider = get_provider(cfg)
@@ -83,18 +83,20 @@ def make_base_with_knobs(category: str, cfg: Config, progress_logger=None) -> st
         progress_logger.log_base_knobs_selected(base_knobs)
     else:
         logger.info(f"Base knobs selected: {base_knobs}")
+        logger.info(f"Theme/category: {category}")
     
     start_time = time.time()
     try:
-        # Use knobs-based generation
-        base_prompt = provider.make_base_with_knobs(base_knobs, avoid_list)
+        # Use knobs-based generation with theme integration
+        base_prompt = provider.make_base_with_knobs(base_knobs, avoid_list, theme=category)
         generation_time = time.time() - start_time
         
         # Log successful generation
         if progress_logger:
             progress_logger.log_base_prompt_success(base_prompt, generation_time)
         else:
-            logger.info(f"Base prompt generated with knobs in {generation_time:.2f}s: {base_prompt[:80]}...")
+            logger.info(f"Base prompt generated with knobs and theme in {generation_time:.2f}s: {base_prompt[:80]}...")
+            logger.debug(f"Used theme: {category}")
             logger.debug(f"Used knobs: {base_knobs}")
         
         return base_prompt

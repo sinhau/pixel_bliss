@@ -48,7 +48,7 @@ class TestPrompts:
         result = make_base("sci-fi", cfg, mock_progress_logger)
         
         assert result == "base prompt"
-        mock_provider.make_base_with_knobs.assert_called_once_with({"vibe": "dreamlike", "palette": "warm"}, ["harsh", "neon"])
+        mock_provider.make_base_with_knobs.assert_called_once_with({"vibe": "dreamlike", "palette": "warm"}, ["harsh", "neon"], theme="sci-fi")
         mock_progress_logger.log_base_prompt_generation.assert_called_once_with("knobs:sci-fi", "openai", "gpt-5")
         mock_progress_logger.log_base_prompt_success.assert_called_once_with("base prompt", 2.5)
 
@@ -86,10 +86,11 @@ class TestPrompts:
             result = make_base("nature", cfg)
             
             assert result == "base prompt"
-            mock_provider.make_base_with_knobs.assert_called_once_with({"vibe": "dreamlike", "palette": "warm"}, ["harsh", "neon"])
-            # Now we expect 2 info calls: one for knobs selection, one for success
-            assert mock_logger.info.call_count == 2
-            mock_logger.debug.assert_called_once()
+            mock_provider.make_base_with_knobs.assert_called_once_with({"vibe": "dreamlike", "palette": "warm"}, ["harsh", "neon"], theme="nature")
+            # Now we expect 3 info calls: knobs selection, theme, and success
+            assert mock_logger.info.call_count == 3
+            # Now we expect 2 debug calls: theme and knobs
+            assert mock_logger.debug.call_count == 2
 
     @patch('pixelbliss.prompts.get_provider')
     @patch('pixelbliss.prompts.KnobSelector.select_base_knobs')

@@ -3,17 +3,18 @@ from typing import Protocol, List, Dict, Optional
 class PromptProvider(Protocol):
     """Protocol defining the interface for prompt generation providers using knobs system."""
     
-    def make_base_with_knobs(self, base_knobs: Dict[str, str], avoid_list: List[str] = None) -> str:
+    def make_base_with_knobs(self, base_knobs: Dict[str, str], avoid_list: List[str] = None, theme: str = None) -> str:
         """
-        Generate a base prompt using the knobs system.
+        Generate a base prompt using the knobs system with theme integration.
         
         Args:
             base_knobs: Dictionary containing selected values for each base knob category
                        (vibe, palette, light, texture, composition, style)
             avoid_list: List of elements to avoid in the generated prompt
+            theme: Theme/category hint that describes what the image will be about
             
         Returns:
-            str: Generated base prompt incorporating all knob values
+            str: Generated base prompt incorporating theme and all knob values
         """
         ...
     

@@ -5,22 +5,24 @@ from .base import PromptProvider
 class DummyLocalProvider(PromptProvider):
     """Dummy local implementation of the PromptProvider protocol for testing."""
 
-    def make_base_with_knobs(self, base_knobs: Dict[str, str], avoid_list: List[str] = None) -> str:
+    def make_base_with_knobs(self, base_knobs: Dict[str, str], avoid_list: List[str] = None, theme: str = None) -> str:
         """
-        Generate a base prompt using the knobs system for testing.
+        Generate a base prompt using the knobs system with theme integration for testing.
         
         Args:
             base_knobs: Dictionary containing selected values for each base knob category
             avoid_list: List of elements to avoid in the generated prompt
+            theme: Theme/category hint that describes what the image will be about
             
         Returns:
-            str: Simple template-based prompt incorporating knob values
+            str: Simple template-based prompt incorporating theme and knob values
         """
-        # Create a simple template that incorporates the knobs
+        # Create a simple template that incorporates the theme and knobs
+        theme_text = f"themed around {theme}, " if theme else ""
         knobs_text = ", ".join([f"{knob}: {value}" for knob, value in base_knobs.items()])
         avoid_text = f", avoiding {', '.join(avoid_list)}" if avoid_list else ""
         
-        return f"A beautiful aesthetic image with {knobs_text}, high detail, sharp focus{avoid_text}, no blur, no text."
+        return f"A beautiful aesthetic image {theme_text}with {knobs_text}, high detail, sharp focus{avoid_text}, no blur, no text."
 
     def make_variants_with_knobs(self, base_prompt: str, k: int, variant_knobs_list: List[Dict[str, str]], avoid_list: List[str] = None) -> List[str]:
         """
