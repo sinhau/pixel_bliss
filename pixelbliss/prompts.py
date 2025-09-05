@@ -7,8 +7,6 @@ def get_provider(cfg: Config) -> PromptProvider:
     if cfg.prompt_generation.provider == "openai":
         return OpenAIGPT5Provider(
             model=cfg.prompt_generation.model,
-            temperature=cfg.prompt_generation.temperature,
-            max_tokens=cfg.prompt_generation.max_tokens
         )
     elif cfg.prompt_generation.provider == "dummy":
         return DummyLocalProvider()

@@ -4,9 +4,8 @@ from openai import OpenAI
 from .base import PromptProvider
 
 class OpenAIGPT5Provider(PromptProvider):
-    def __init__(self, model: str = "gpt-5", temperature: float = 0.8):
+    def __init__(self, model: str = "gpt-5"):
         self.model = model
-        self.temperature = temperature
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def make_base(self, category: str) -> str:
@@ -24,7 +23,6 @@ class OpenAIGPT5Provider(PromptProvider):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=self.temperature,
         )
         return response.choices[0].message.content.strip()
 
@@ -43,7 +41,6 @@ class OpenAIGPT5Provider(PromptProvider):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=self.temperature,
         )
         content = response.choices[0].message.content.strip()
         # Assume the response is a list, split by lines or something
@@ -63,7 +60,6 @@ class OpenAIGPT5Provider(PromptProvider):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=self.temperature,
             max_completion_tokens=100  # Shorter for alt text
         )
         return response.choices[0].message.content.strip()
