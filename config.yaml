@@ -102,10 +102,10 @@ image_generation:
 
 ranking:
   # Image scoring weights for final ranking: final_score = w_brightness * brightness_norm + w_entropy * entropy_norm + w_aesthetic * aesthetic_score + w_local_quality * local_quality_score
-  w_brightness: 0.25        # Weight for normalized brightness score (0-1)
-  w_entropy: 0.25           # Weight for normalized entropy/complexity score (0-1) 
+  w_brightness: 0.1        # Weight for normalized brightness score (0-1)
+  w_entropy: 0.15           # Weight for normalized entropy/complexity score (0-1) 
   w_aesthetic: 0.50         # Weight for aesthetic quality score (0-1)
-  w_local_quality: 0.20     # Weight for local quality score (0-1) - sharpness and exposure
+  w_local_quality: 0.25     # Weight for local quality score (0-1) - sharpness and exposure
 
   # Quality thresholds - images failing these are discarded before ranking
   entropy_min: 3.5          # Minimum entropy (visual complexity) - filters out overly simple/flat images
