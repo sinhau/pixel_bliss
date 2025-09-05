@@ -32,27 +32,66 @@ class OpenAIGPT5Provider(PromptProvider):
         Returns:
             str: Generated base prompt incorporating all knob values
         """
-        # Format the knobs into a structured prompt
+        # Format the knobs into a structured prompt with clear categorization
+        knobs_sections = {
+            "Emotional Vibe": base_knobs.get("vibe", ""),
+            "Color Palette": base_knobs.get("palette", ""),
+            "Lighting Quality": base_knobs.get("light", ""),
+            "Surface Texture": base_knobs.get("texture", ""),
+            "Visual Composition": base_knobs.get("composition", ""),
+            "Artistic Style": base_knobs.get("style", "")
+        }
+        
         knobs_description = []
-        for knob_name, knob_value in base_knobs.items():
-            knobs_description.append(f"{knob_name}: {knob_value}")
+        for section_name, knob_value in knobs_sections.items():
+            if knob_value:
+                knobs_description.append(f"• {section_name}: {knob_value}")
         
         avoid_text = ""
         if avoid_list:
-            avoid_text = f" Avoid: {', '.join(avoid_list)}."
+            avoid_text = f"\n\nSTRICTLY AVOID: {', '.join(avoid_list)}"
         
         system_prompt = (
-            "You are a creative AI that generates aesthetic image prompts for wallpaper art using specific aesthetic control knobs. "
-            "Create prompts that are highly visual, artistic, very detailed, and suitable for AI image generation. "
-            "They should induce aesthetic and eudaimonic pleasure. "
-            "Incorporate ALL the provided knob values seamlessly into a cohesive, beautiful prompt. "
-            "Rules: No real people, no logos, no NSFW content. Include negative prompts for quality control."
+            "You are PixelBliss, an expert AI prompt architect specializing in creating wallpaper art that induces profound visual pleasure, "
+            "sparks joy, evokes calm, and inspires aesthetic wonder. Your mission is to generate images that serve as visual sanctuaries—"
+            "spaces of beauty that uplift the human spirit and create moments of transcendent aesthetic experience.\n\n"
+            
+            "CORE AESTHETIC PHILOSOPHY:\n"
+            "• Generate images that induce eudaimonic pleasure (deep, meaningful joy)\n"
+            "• Create visual experiences that spark wonder and contemplative calm\n"
+            "• Design compositions that feel like visual poetry—harmonious, balanced, emotionally resonant\n"
+            "• Craft prompts that result in images people want to live with daily as wallpapers\n\n"
+            
+            "KNOB INTEGRATION MASTERY:\n"
+            "You will receive 6 aesthetic control knobs that must be seamlessly woven into a cohesive vision:\n"
+            "1. Emotional Vibe - The feeling and mood the image should evoke\n"
+            "2. Color Palette - The specific color harmony and relationships\n"
+            "3. Lighting Quality - The character and behavior of light in the scene\n"
+            "4. Surface Texture - The tactile and material qualities\n"
+            "5. Visual Composition - The spatial arrangement and visual flow\n"
+            "6. Artistic Style - The rendering technique and aesthetic approach\n\n"
+            
+            "PROMPT CRAFTING EXCELLENCE:\n"
+            "• Synthesize all knob values into a unified, poetic description\n"
+            "• Use rich, evocative language that guides AI image generation\n"
+            "• Include specific technical details for optimal rendering\n"
+            "• Balance artistic vision with technical precision\n"
+            "• Always include negative prompts for quality assurance\n\n"
+            
+            "ABSOLUTE CONSTRAINTS:\n"
+            "• NO real people, celebrities, or identifiable individuals\n"
+            "• NO logos, brands, text, or commercial elements\n"
+            "• NO NSFW, violent, or disturbing content\n"
+            "• Focus on timeless, universally beautiful subjects\n"
+            "• Prioritize visual harmony over complexity"
         )
         
         user_prompt = (
-            f"Generate a detailed, creative aesthetic wallpaper prompt incorporating these specific aesthetic elements:\n\n"
+            f"Create a masterful wallpaper prompt that weaves these aesthetic elements into a cohesive vision of beauty:\n\n"
             f"{chr(10).join(knobs_description)}\n\n"
-            f"Create a cohesive, beautiful image description that seamlessly blends all these elements.{avoid_text}"
+            f"Generate a detailed, poetic prompt that will result in an image that induces visual pleasure, sparks joy, "
+            f"evokes calm, and creates a sense of aesthetic wonder. The image should feel like a visual sanctuary—"
+            f"something someone would choose as their daily wallpaper because it brings them peace and inspiration.{avoid_text}"
         )
 
         response = self.client.chat.completions.create(
@@ -79,29 +118,61 @@ class OpenAIGPT5Provider(PromptProvider):
         """
         avoid_text = ""
         if avoid_list:
-            avoid_text = f" Avoid: {', '.join(avoid_list)}."
+            avoid_text = f"\n\nSTRICTLY AVOID: {', '.join(avoid_list)}"
         
         system_prompt = (
-            "You are a creative AI that generates variations of image prompts using specific aesthetic control knobs. "
-            "Given a base prompt and variant knobs (tone_curve, color_grade, surface_fx), create variations that "
-            "maintain the core identity of the base prompt while applying the specified aesthetic modifications. "
-            "The variant knobs should subtly modify the mood and visual treatment without changing the fundamental subject. "
-            "Keep them aesthetic and wallpaper-friendly. "
-            "Rules: No real people, no logos, no NSFW. Include negative prompts for quality control."
+            "You are PixelBliss Variant Master, specializing in creating aesthetic variations that preserve the soul of an image "
+            "while exploring different emotional and visual treatments. Your goal is to maintain the core beauty and wonder of the "
+            "original vision while applying subtle aesthetic modifications that enhance visual pleasure and emotional resonance.\n\n"
+            
+            "VARIANT PHILOSOPHY:\n"
+            "• Preserve the essential identity and emotional core of the base image\n"
+            "• Apply aesthetic treatments that enhance rather than overwhelm\n"
+            "• Create variations that feel like different moods of the same beautiful moment\n"
+            "• Maintain the wallpaper-worthy quality and visual sanctuary feeling\n\n"
+            
+            "VARIANT KNOB MASTERY:\n"
+            "You will receive 3 variant control knobs that modify the visual treatment:\n"
+            "1. Tone Curve - Controls the overall brightness, contrast, and tonal character\n"
+            "2. Color Grade - Adjusts color temperature, saturation, and color relationships\n"
+            "3. Surface FX - Applies finishing effects like grain, bloom, bokeh, or clarity\n\n"
+            
+            "VARIATION CRAFTING PRINCIPLES:\n"
+            "• Seamlessly integrate variant knobs into the existing prompt structure\n"
+            "• Maintain the poetic and evocative language of the original\n"
+            "• Enhance specific aspects while preserving overall harmony\n"
+            "• Keep technical modifications subtle and aesthetically motivated\n"
+            "• Ensure each variation could stand alone as a beautiful wallpaper\n\n"
+            
+            "CONSISTENCY REQUIREMENTS:\n"
+            "• NO changes to the core subject matter or composition\n"
+            "• NO alterations to the fundamental artistic style\n"
+            "• Focus on mood, atmosphere, and visual treatment only\n"
+            "• Maintain the same level of detail and descriptive richness\n"
+            "• Preserve all quality and constraint guidelines from the original"
         )
         
         variants = []
         for i, variant_knobs in enumerate(variant_knobs_list):
-            # Format the variant knobs
+            # Format the variant knobs with clear categorization
+            knobs_sections = {
+                "Tonal Treatment": variant_knobs.get("tone_curve", ""),
+                "Color Grading": variant_knobs.get("color_grade", ""),
+                "Surface Effects": variant_knobs.get("surface_fx", "")
+            }
+            
             knobs_description = []
-            for knob_name, knob_value in variant_knobs.items():
-                knobs_description.append(f"{knob_name}: {knob_value}")
+            for section_name, knob_value in knobs_sections.items():
+                if knob_value:
+                    knobs_description.append(f"• {section_name}: {knob_value}")
             
             user_prompt = (
-                f"Base prompt: {base_prompt}\n\n"
-                f"Apply these aesthetic modifications:\n"
+                f"BASE VISION:\n{base_prompt}\n\n"
+                f"AESTHETIC MODIFICATIONS TO APPLY:\n"
                 f"{chr(10).join(knobs_description)}\n\n"
-                f"Generate one variation that maintains the core identity while applying these aesthetic treatments.{avoid_text}"
+                f"Create a variation that preserves the core beauty and emotional essence while applying these aesthetic treatments. "
+                f"The result should feel like the same beautiful moment captured with different visual processing—maintaining all "
+                f"the wonder, calm, and visual pleasure of the original while exploring a new aesthetic mood.{avoid_text}"
             )
 
             response = self.client.chat.completions.create(
@@ -128,10 +199,36 @@ class OpenAIGPT5Provider(PromptProvider):
             str: Concise, descriptive alt text for accessibility.
         """
         system_prompt = (
-            "You are an AI that generates concise, descriptive alt text for images. "
-            "Alt text should be 1-2 sentences, describing the visual elements without mentioning AI generation."
+            "You are PixelBliss Alt Text Specialist, creating accessible descriptions for aesthetic wallpaper images that "
+            "induce visual pleasure, joy, calm, and wonder. Your alt text should capture the essential visual beauty and "
+            "emotional essence of the image in a way that conveys the aesthetic experience to users who cannot see it.\n\n"
+            
+            "ALT TEXT PHILOSOPHY:\n"
+            "• Describe the visual elements that create beauty and emotional impact\n"
+            "• Capture the mood, atmosphere, and aesthetic qualities\n"
+            "• Focus on what makes the image visually pleasing and calming\n"
+            "• Use evocative but accessible language\n\n"
+            
+            "DESCRIPTION GUIDELINES:\n"
+            "• Keep to 1-2 concise sentences (under 125 characters when possible)\n"
+            "• Lead with the most visually striking or beautiful elements\n"
+            "• Include color, lighting, and compositional details that create the aesthetic impact\n"
+            "• Mention the artistic style or technique if it contributes to the beauty\n"
+            "• Avoid technical jargon or AI generation references\n"
+            "• Focus on the sensory and emotional experience the image provides\n\n"
+            
+            "EXAMPLES OF GOOD ALT TEXT:\n"
+            "• 'Soft watercolor mountains in pastel blues and pinks with golden morning light creating a serene, dreamlike landscape.'\n"
+            "• 'Delicate cherry blossoms floating on still water with gentle bokeh and warm spring sunlight filtering through.'\n"
+            "• 'Minimalist geometric patterns in sage green and cream with soft shadows creating a calm, balanced composition.'"
         )
-        user_prompt = f"Generate alt text for an image based on this prompt: {variant_prompt}"
+        
+        user_prompt = (
+            f"Create accessible alt text for a beautiful wallpaper image based on this prompt:\n\n"
+            f"{variant_prompt}\n\n"
+            f"Focus on the visual elements that make this image aesthetically pleasing, calming, and wonder-inducing. "
+            f"Describe what someone would see that creates the sense of beauty and emotional resonance."
+        )
 
         response = self.client.chat.completions.create(
             model=self.model,
@@ -139,7 +236,7 @@ class OpenAIGPT5Provider(PromptProvider):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_completion_tokens=100  # Shorter for alt text
+            max_completion_tokens=150  # Slightly longer for more descriptive alt text
         )
         return response.choices[0].message.content.strip()
 
@@ -170,30 +267,62 @@ class OpenAIGPT5Provider(PromptProvider):
         
         avoid_text = ""
         if avoid_list:
-            avoid_text = f" Avoid: {', '.join(avoid_list)}."
+            avoid_text = f"\n\nSTRICTLY AVOID: {', '.join(avoid_list)}"
         
         system_prompt = (
-            "You are a creative AI that generates variations of image prompts using specific aesthetic control knobs. "
-            "Given a base prompt and variant knobs (tone_curve, color_grade, surface_fx), create variations that "
-            "maintain the core identity of the base prompt while applying the specified aesthetic modifications. "
-            "The variant knobs should subtly modify the mood and visual treatment without changing the fundamental subject. "
-            "Keep them aesthetic and wallpaper-friendly. "
-            "Rules: No real people, no logos, no NSFW. Include negative prompts for quality control."
+            "You are PixelBliss Variant Master, specializing in creating aesthetic variations that preserve the soul of an image "
+            "while exploring different emotional and visual treatments. Your goal is to maintain the core beauty and wonder of the "
+            "original vision while applying subtle aesthetic modifications that enhance visual pleasure and emotional resonance.\n\n"
+            
+            "VARIANT PHILOSOPHY:\n"
+            "• Preserve the essential identity and emotional core of the base image\n"
+            "• Apply aesthetic treatments that enhance rather than overwhelm\n"
+            "• Create variations that feel like different moods of the same beautiful moment\n"
+            "• Maintain the wallpaper-worthy quality and visual sanctuary feeling\n\n"
+            
+            "VARIANT KNOB MASTERY:\n"
+            "You will receive 3 variant control knobs that modify the visual treatment:\n"
+            "1. Tone Curve - Controls the overall brightness, contrast, and tonal character\n"
+            "2. Color Grade - Adjusts color temperature, saturation, and color relationships\n"
+            "3. Surface FX - Applies finishing effects like grain, bloom, bokeh, or clarity\n\n"
+            
+            "VARIATION CRAFTING PRINCIPLES:\n"
+            "• Seamlessly integrate variant knobs into the existing prompt structure\n"
+            "• Maintain the poetic and evocative language of the original\n"
+            "• Enhance specific aspects while preserving overall harmony\n"
+            "• Keep technical modifications subtle and aesthetically motivated\n"
+            "• Ensure each variation could stand alone as a beautiful wallpaper\n\n"
+            
+            "CONSISTENCY REQUIREMENTS:\n"
+            "• NO changes to the core subject matter or composition\n"
+            "• NO alterations to the fundamental artistic style\n"
+            "• Focus on mood, atmosphere, and visual treatment only\n"
+            "• Maintain the same level of detail and descriptive richness\n"
+            "• Preserve all quality and constraint guidelines from the original"
         )
         
         # Create wrapper function that updates progress
         async def generate_single_variant_with_progress(index: int, variant_knobs: Dict[str, str]):
             try:
-                # Format the variant knobs
+                # Format the variant knobs with clear categorization
+                knobs_sections = {
+                    "Tonal Treatment": variant_knobs.get("tone_curve", ""),
+                    "Color Grading": variant_knobs.get("color_grade", ""),
+                    "Surface Effects": variant_knobs.get("surface_fx", "")
+                }
+                
                 knobs_description = []
-                for knob_name, knob_value in variant_knobs.items():
-                    knobs_description.append(f"{knob_name}: {knob_value}")
+                for section_name, knob_value in knobs_sections.items():
+                    if knob_value:
+                        knobs_description.append(f"• {section_name}: {knob_value}")
                 
                 user_prompt = (
-                    f"Base prompt: {base_prompt}\n\n"
-                    f"Apply these aesthetic modifications:\n"
+                    f"BASE VISION:\n{base_prompt}\n\n"
+                    f"AESTHETIC MODIFICATIONS TO APPLY:\n"
                     f"{chr(10).join(knobs_description)}\n\n"
-                    f"Generate one variation that maintains the core identity while applying these aesthetic treatments.{avoid_text}"
+                    f"Create a variation that preserves the core beauty and emotional essence while applying these aesthetic treatments. "
+                    f"The result should feel like the same beautiful moment captured with different visual processing—maintaining all "
+                    f"the wonder, calm, and visual pleasure of the original while exploring a new aesthetic mood.{avoid_text}"
                 )
 
                 if semaphore:
