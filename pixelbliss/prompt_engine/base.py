@@ -15,13 +15,14 @@ class PromptProvider(Protocol):
         """
         ...
 
-    def make_variants_from_base(self, base_prompt: str, k: int) -> List[str]:
+    def make_variants_from_base(self, base_prompt: str, k: int, art_styles: List[str] = None) -> List[str]:
         """
         Generate k variations of a base prompt.
         
         Args:
             base_prompt: The original prompt to create variations from.
             k: Number of variations to generate.
+            art_styles: List of art styles to randomly select from for each variant.
             
         Returns:
             List[str]: List of k prompt variations.

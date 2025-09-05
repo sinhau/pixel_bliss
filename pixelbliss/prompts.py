@@ -52,7 +52,7 @@ def make_variants_from_base(base_prompt: str, k: int, cfg: Config) -> list[str]:
         list[str]: List of k prompt variations.
     """
     provider = get_provider(cfg)
-    return provider.make_variants_from_base(base_prompt, k)
+    return provider.make_variants_from_base(base_prompt, k, cfg.art_styles)
 
 def make_alt_text(base_prompt: str, variant_prompt: str, cfg: Config) -> str:
     """

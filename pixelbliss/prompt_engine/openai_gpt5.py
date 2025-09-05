@@ -1,4 +1,5 @@
 import os
+import random
 from typing import List
 from openai import OpenAI
 from .base import PromptProvider
@@ -43,27 +44,38 @@ class OpenAIGPT5Provider(PromptProvider):
         )
         return response.choices[0].message.content.strip()
 
-    def make_variants_from_base(self, base_prompt: str, k: int) -> List[str]:
+    def make_variants_from_base(self, base_prompt: str, k: int, art_styles: List[str] = None) -> List[str]:
         """
         Generate k variations of a base prompt using OpenAI GPT-5.
         
         Args:
             base_prompt: The original prompt to create variations from.
             k: Number of variations to generate.
+            art_styles: List of art styles to randomly select from for each variant.
             
         Returns:
             List[str]: List of k prompt variations with different styles and elements.
         """
         system_prompt = (
             "You are a creative AI that generates variations of image prompts. "
-            "Given a base prompt, create variations by changing styles, colors, compositions, or adding artistic elements. "
-            "Try to add some random thematic element that induces aesthetic and eudaimonic pleasure "
+            "Given a base prompt and an art style, create variations by incorporating the specified art style "
+            "while changing colors, compositions, or adding artistic elements. "
+            "EMPHASIZE the art style heavily in your prompt - it should be a dominant characteristic of the image. "
+            "Try to add some random thematic element that induces aesthetic and eudaimonic pleasure. "
             "Keep them aesthetic and wallpaper-friendly. "
             "Rules: No real people, no logos, no NSFW. Include negative prompts."
         )
         variants = []
         for _ in range(k):
-            user_prompt = f"Base prompt: {base_prompt}\n\nGenerate one creative variation of this prompt."
+            # Select a random art style for this variant
+            selected_style = random.choice(art_styles) if art_styles else "artistic style"
+            
+            user_prompt = (
+                f"Base prompt: {base_prompt}\n\n"
+                f"Art style to emphasize: {selected_style}\n\n"
+                f"Generate one creative variation of this prompt that heavily emphasizes the {selected_style} art style. "
+                f"Make sure the {selected_style} style is a prominent and defining characteristic of the image."
+            )
 
             response = self.client.chat.completions.create(
                 model=self.model,
