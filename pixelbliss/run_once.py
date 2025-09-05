@@ -480,7 +480,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             alt = prompts.make_alt_text(base_prompt, winner["prompt"], cfg)
             logger.debug(f"Alt text generated: {alt[:100]}...")
             
-            public_paths = storage.fs.save_images(out_dir, wallpapers)
+            public_paths = storage.fs.save_images(out_dir, wallpapers, base_img)
             logger.info(f"Images saved to: {out_dir}")
             
             ph = phash.phash_hex(wallpapers[next(iter(wallpapers))])
@@ -693,7 +693,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         alt = prompts.make_alt_text(base_prompt, winner["prompt"], cfg)
         logger.debug(f"Alt text generated: {alt[:100]}...")
         
-        public_paths = storage.fs.save_images(out_dir, wallpapers)
+        public_paths = storage.fs.save_images(out_dir, wallpapers, base_img)
         logger.info(f"Images saved to: {out_dir}")
         
         ph = phash.phash_hex(wallpapers[next(iter(wallpapers))])

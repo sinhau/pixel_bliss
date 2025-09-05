@@ -138,7 +138,7 @@ upscale:
   enabled: true             # Whether to upscale winning images before creating wallpaper variants
   provider: "fal"           # Upscaling provider: "fal", "replicate", or "dummy_local" for testing
   model: "fal-ai/esrgan"    # Specific upscaling model to use (e.g., Real-ESRGAN variants)
-  factor: 2                 # Upscaling factor (2x, 4x, etc.)
+  factor: 4                 # Upscaling factor (2x, 4x, etc.)
 
 # Output wallpaper variants - edit this list to change sizes without code changes
 # Each variant specifies: name (for file naming), width, and height in pixels

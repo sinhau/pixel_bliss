@@ -57,6 +57,41 @@ class TestSaveImages:
         assert os.path.exists(os.path.join(temp_dir, 'image2.png'))
         assert os.path.exists(os.path.join(temp_dir, 'image3.png'))
 
+    def test_save_images_with_base_img(self, temp_dir, sample_images, sample_image):
+        """Test saving images with base_img parameter."""
+        base_img = Image.new('RGB', (300, 300), color='purple')
+        result = save_images(temp_dir, sample_images, base_img)
+        
+        # Check return value structure includes base_img
+        assert isinstance(result, dict)
+        assert len(result) == 4  # 3 variants + 1 base
+        assert 'image1' in result
+        assert 'image2' in result
+        assert 'image3' in result
+        assert 'base_img' in result
+        
+        # Check public paths format
+        assert result['base_img'] == f"/{temp_dir}/base_img.png"
+        
+        # Check files were actually created
+        assert os.path.exists(os.path.join(temp_dir, 'base_img.png'))
+        assert os.path.exists(os.path.join(temp_dir, 'image1.png'))
+        assert os.path.exists(os.path.join(temp_dir, 'image2.png'))
+        assert os.path.exists(os.path.join(temp_dir, 'image3.png'))
+        
+        # Verify base image was saved correctly
+        saved_base = Image.open(os.path.join(temp_dir, 'base_img.png'))
+        assert saved_base.size == (300, 300)
+
+    def test_save_images_without_base_img(self, temp_dir, sample_images):
+        """Test saving images without base_img parameter (backward compatibility)."""
+        result = save_images(temp_dir, sample_images, None)
+        
+        # Should work the same as before
+        assert len(result) == 3
+        assert 'base_img' not in result
+        assert not os.path.exists(os.path.join(temp_dir, 'base_img.png'))
+
     def test_save_images_single_image(self, temp_dir, sample_image):
         """Test saving a single image."""
         images = {'single': sample_image}
