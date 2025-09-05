@@ -185,3 +185,15 @@ class TestQualityIntegration:
         passes_bright, score_bright = quality.exposure_score(bright_img, 0.2)
         
         assert score_good > score_bright, "Well-exposed image should have higher exposure score"
+    
+    def test_sharpness_score_zero_good(self):
+        """Test sharpness score when sharpness_good is 0."""
+        image = Image.new('RGB', (100, 100), color=(128, 128, 128))
+        passes, score = quality.sharpness_score(image, 0.0, 0.0)
+        assert score == 0.0, "Score should be 0.0 when sharpness_good is 0"
+
+    def test_exposure_score_zero_clip_max(self):
+        """Test exposure score when clip_max is 0."""
+        image = Image.new('RGB', (100, 100), color=(128, 128, 128))
+        passes, score = quality.exposure_score(image, 0.0)
+        assert score == 0.0, "Score should be 0.0 when clip_max is 0"

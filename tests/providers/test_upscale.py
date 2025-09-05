@@ -266,7 +266,7 @@ class TestUpscale:
             mock_response.raise_for_status = Mock()
             mock_requests.return_value = mock_response
             
-            upscale(sample_image, "fal", "", 2)  # Empty model string
+            upscale(sample_image, "fal", None, 2)  # None model to trigger default
             
             # Should use default model
             call_args = mock_fal_run.call_args
