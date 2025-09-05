@@ -43,42 +43,7 @@ categories: [
     "poster-design", "tattoo-art", "toy-design"
 ]
 
-# Comprehensive list of art styles that can be applied to generated images - used by the prompt generation system to add artistic style variations to image prompts
-art_styles: [
-    # Traditional Fine Art Styles
-    "Realism", "Impressionism", "Post-Impressionism", "Expressionism", "Fauvism",
-    "Cubism", "Futurism", "Surrealism", "Dadaism", "Abstract Expressionism",
-    "Minimalism", "Symbolism", "Pointillism",
-
-    # Painting Mediums & Techniques
-    "Oil painting", "Watercolor", "Acrylic painting", "Gouache painting",
-    "Ink wash (Sumi-e)", "Fresco", "Tempera", "Encaustic", "Impasto", "Airbrush",
-
-    # Modern & Contemporary Styles
-    "Pop Art", "Photorealism", "Hyperrealism", "Conceptual Art", "Op Art",
-    "Kinetic Art", "Digital Glitch Art", "Vaporwave", "Synthwave", "Retrowave",
-    "Low-poly", "Generative Art",
-
-    # Graphic & Illustration Styles
-    "Line Art", "Flat Design", "Cartoon", "Comic Book", "Anime", "Manga",
-    "Chibi", "Graphic Novel style", "Pixel Art", "Vector Art", "Stippling",
-    "Cross-hatching",
-
-    # Cultural & Historical Styles
-    "Renaissance", "Baroque", "Rococo", "Neoclassicism", "Romanticism",
-    "Art Nouveau", "Art Deco", "Bauhaus", "Brutalism", "Ukiyo-e",
-    "Persian Miniature", "Byzantine", "Gothic", "Medieval Illumination",
-
-    # Photography & Cinematic Styles
-    "Black and white photography", "Sepia tone", "Film noir",
-    "Cinematic still frame", "HDR photography", "Long-exposure",
-    "Macro photography", "Tilt-shift", "Polaroid aesthetic", "Daguerreotype",
-
-    # Atmospheric & Experimental Styles
-    "Dreamlike", "Ethereal", "Psychedelic", "Cosmic", "Astral",
-    "Biomechanical", "Cyberpunk", "Steampunk", "Dieselpunk", "Solarpunk",
-    "Dark Fantasy", "Whimsical", "Fairytale", "Collage", "Mixed Media"
-]
+# Legacy art_styles removed - now using diverse knobs system for prompt generation
 
 
 # Category selection method: "time" for time-based rotation, "random" for random selection
