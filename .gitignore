@@ -7,3 +7,4 @@ pixelbliss/**/__pycache__/
 .clinerules/
 manifest/
 outputs/
+*.pyc
