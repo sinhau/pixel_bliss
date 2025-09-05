@@ -211,46 +211,119 @@ class TestUploadMedia:
 class TestSetAltText:
     """Test cases for set_alt_text function."""
 
-    @patch('pixelbliss.twitter.client.get_client')
-    def test_set_alt_text_success(self, mock_get_client):
+    @patch.dict(os.environ, {
+        'X_API_KEY': 'test_api_key',
+        'X_API_SECRET': 'test_api_secret',
+        'X_ACCESS_TOKEN': 'test_access_token',
+        'X_ACCESS_TOKEN_SECRET': 'test_access_token_secret'
+    })
+    @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
+    @patch('pixelbliss.twitter.client.tweepy.API')
+    def test_set_alt_text_success(self, mock_api_class, mock_oauth):
         """Test setting alt text successfully."""
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
+        # Mock OAuth handler
+        mock_auth = Mock()
+        mock_oauth.return_value = mock_auth
+        
+        # Mock API
+        mock_api = Mock()
+        mock_api_class.return_value = mock_api
         
         set_alt_text("123456789", "A beautiful sunset over mountains")
         
-        mock_get_client.assert_called_once()
-        mock_client.create_media_metadata.assert_called_once_with(
+        # Verify OAuth setup
+        mock_oauth.assert_called_once_with(
+            consumer_key='test_api_key',
+            consumer_secret='test_api_secret',
+            access_token='test_access_token',
+            access_token_secret='test_access_token_secret'
+        )
+        
+        # Verify API setup and metadata creation
+        mock_api_class.assert_called_once_with(mock_auth)
+        mock_api.create_media_metadata.assert_called_once_with(
             "123456789",
             alt_text={"text": "A beautiful sunset over mountains"}
         )
 
-    @patch('pixelbliss.twitter.client.get_client')
-    def test_set_alt_text_empty_string(self, mock_get_client):
+    @patch.dict(os.environ, {
+        'X_API_KEY': 'test_api_key',
+        'X_API_SECRET': 'test_api_secret',
+        'X_ACCESS_TOKEN': 'test_access_token',
+        'X_ACCESS_TOKEN_SECRET': 'test_access_token_secret'
+    })
+    @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
+    @patch('pixelbliss.twitter.client.tweepy.API')
+    def test_set_alt_text_empty_string(self, mock_api_class, mock_oauth):
         """Test setting empty alt text."""
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
+        # Mock OAuth handler
+        mock_auth = Mock()
+        mock_oauth.return_value = mock_auth
+        
+        # Mock API
+        mock_api = Mock()
+        mock_api_class.return_value = mock_api
         
         set_alt_text("123456789", "")
         
-        mock_client.create_media_metadata.assert_called_once_with(
+        mock_api.create_media_metadata.assert_called_once_with(
             "123456789",
             alt_text={"text": ""}
         )
 
-    @patch('pixelbliss.twitter.client.get_client')
-    def test_set_alt_text_long_description(self, mock_get_client):
+    @patch.dict(os.environ, {
+        'X_API_KEY': 'test_api_key',
+        'X_API_SECRET': 'test_api_secret',
+        'X_ACCESS_TOKEN': 'test_access_token',
+        'X_ACCESS_TOKEN_SECRET': 'test_access_token_secret'
+    })
+    @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
+    @patch('pixelbliss.twitter.client.tweepy.API')
+    def test_set_alt_text_long_description(self, mock_api_class, mock_oauth):
         """Test setting long alt text description."""
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
+        # Mock OAuth handler
+        mock_auth = Mock()
+        mock_oauth.return_value = mock_auth
+        
+        # Mock API
+        mock_api = Mock()
+        mock_api_class.return_value = mock_api
         
         long_alt = "A very detailed description of an image that contains multiple elements including people, buildings, nature, and various objects that would be important for accessibility purposes."
         
         set_alt_text("987654321", long_alt)
         
-        mock_client.create_media_metadata.assert_called_once_with(
+        mock_api.create_media_metadata.assert_called_once_with(
             "987654321",
             alt_text={"text": long_alt}
+        )
+
+    @patch.dict(os.environ, {}, clear=True)
+    @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
+    @patch('pixelbliss.twitter.client.tweepy.API')
+    def test_set_alt_text_without_credentials(self, mock_api_class, mock_oauth):
+        """Test setting alt text without credentials."""
+        # Mock OAuth handler
+        mock_auth = Mock()
+        mock_oauth.return_value = mock_auth
+        
+        # Mock API
+        mock_api = Mock()
+        mock_api_class.return_value = mock_api
+        
+        set_alt_text("123456789", "Test alt text")
+        
+        # Verify OAuth setup with None values
+        mock_oauth.assert_called_once_with(
+            consumer_key=None,
+            consumer_secret=None,
+            access_token=None,
+            access_token_secret=None
+        )
+        
+        mock_api.create_media_metadata.assert_called_once_with(
+            "123456789",
+            alt_text={"text": "Test alt text"}
         )
 
 

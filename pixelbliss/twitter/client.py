@@ -52,8 +52,14 @@ def set_alt_text(media_id: str, alt: str) -> None:
         media_id: The media ID string from Twitter.
         alt: Alt text description for accessibility.
     """
-    client = get_client()
-    client.create_media_metadata(media_id, alt_text={"text": alt})
+    auth = tweepy.OAuth1UserHandler(
+        consumer_key=os.getenv("X_API_KEY"),
+        consumer_secret=os.getenv("X_API_SECRET"),
+        access_token=os.getenv("X_ACCESS_TOKEN"),
+        access_token_secret=os.getenv("X_ACCESS_TOKEN_SECRET")
+    )
+    api = tweepy.API(auth)
+    api.create_media_metadata(media_id, alt_text={"text": alt})
 
 def create_tweet(text: str, media_ids: List[str]) -> str:
     """
