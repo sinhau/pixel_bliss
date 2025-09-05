@@ -196,7 +196,7 @@ def post_once(dry_run: bool = False):
                 candidates.append({**imgres, "prompt": vp})
 
     if not candidates:
-        alerts.webhook.send_failure("no images produced")
+        alerts.webhook.send_failure("no images produced", cfg)
         return 1
 
     # D) Rank candidates
@@ -219,7 +219,7 @@ def post_once(dry_run: bool = False):
         scored.append(c)
 
     if not scored:
-        alerts.webhook.send_failure("all candidates failed sanity/scoring")
+        alerts.webhook.send_failure("all candidates failed sanity/scoring", cfg)
         return 1
 
     scored = normalize_and_rescore(scored, cfg)
@@ -231,7 +231,7 @@ def post_once(dry_run: bool = False):
             winner = c
             break
     if winner is None:
-        alerts.webhook.send_failure("near-duplicate with manifest history")
+        alerts.webhook.send_failure("near-duplicate with manifest history", cfg)
         return 0  # not fatal
 
     # E) Upscale winner -> wallpaper variants
@@ -300,5 +300,5 @@ def post_once(dry_run: bool = False):
     meta["tweet_id"] = tweet_id
     storage.fs.save_meta(out_dir, meta)
 
-    alerts.webhook.send_success(category, meta["model"], tweet_url(tweet_id), public_paths[first_key])
+    alerts.webhook.send_success(category, meta["model"], tweet_url(tweet_id), public_paths[first_key], cfg)
     return 0

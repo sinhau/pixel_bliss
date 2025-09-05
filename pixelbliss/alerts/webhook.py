@@ -1,7 +1,8 @@
 import os
 import requests
+from ..config import Config
 
-def send_success(category: str, model: str, tweet_url: str, image_url: str) -> None:
+def send_success(category: str, model: str, tweet_url: str, image_url: str, cfg: Config) -> None:
     """
     Send a success notification webhook when an image is successfully posted.
     
@@ -10,22 +11,30 @@ def send_success(category: str, model: str, tweet_url: str, image_url: str) -> N
         model: The AI model used for image generation.
         tweet_url: URL of the posted tweet.
         image_url: URL of the generated image.
+        cfg: Configuration object containing alerts settings.
     """
-    webhook_url = os.getenv("ALERT_WEBHOOK_URL")
+    if not cfg.alerts.enabled:
+        return
+    
+    webhook_url = os.getenv(cfg.alerts.webhook_url_env)
     if not webhook_url:
         return
     message = f"[PixelBliss] Posted {category} via {model} → {tweet_url}\nImage: {image_url}"
     requests.post(webhook_url, json={"content": message})
 
-def send_failure(reason: str, details: str = "") -> None:
+def send_failure(reason: str, cfg: Config, details: str = "") -> None:
     """
     Send a failure notification webhook when an error occurs.
     
     Args:
         reason: Brief description of the failure reason.
+        cfg: Configuration object containing alerts settings.
         details: Optional additional details about the failure. Defaults to "".
     """
-    webhook_url = os.getenv("ALERT_WEBHOOK_URL")
+    if not cfg.alerts.enabled:
+        return
+    
+    webhook_url = os.getenv(cfg.alerts.webhook_url_env)
     if not webhook_url:
         return
     message = f"[PixelBliss] FAIL: {reason}"
