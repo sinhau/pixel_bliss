@@ -91,7 +91,7 @@ rotation_minutes: 180
 prompt_generation:
   provider: "openai"        # Prompt generation provider: "openai" for GPT models, "dummy" for testing
   model: "gpt-5"            # AI model for generating base prompts, variants, and alt text
-  num_prompt_variants: 3    # Number of prompt variations to generate from each base prompt (1 base -> 3 variants)
+  num_prompt_variants: 5    # Number of prompt variations to generate from each base prompt (1 base -> 5 variants)
   # System/style rules enforced at runtime: no real people/logos/NSFW content, includes negative prompts, aesthetic style hints
 
 image_generation:
@@ -100,7 +100,7 @@ image_generation:
   model_replicate: ["google/gemini-2.5-flash-image", "bytedance/seedream-3", "google/imagen-4-ultra"]   # Replicate models as fallback options
   retries_per_image: 2      # Number of retry attempts per image generation request before giving up
   async_enabled: true       # Enable parallel processing of prompt variants (faster generation)
-  max_concurrency: null     # Optional limit on concurrent API requests (null = no limit, use integer to limit)
+  max_concurrency: 10     # Optional limit on concurrent API requests (null = no limit, use integer to limit)
 
 ranking:
   # Image scoring weights for final ranking: final_score = w_brightness * brightness_norm + w_entropy * entropy_norm + w_aesthetic * aesthetic_score + w_local_quality * local_quality_score

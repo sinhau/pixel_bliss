@@ -1,6 +1,7 @@
 import datetime
 import random
 import asyncio
+import logging
 from typing import List, Dict, Any, Optional
 from . import config, prompts, providers, imaging, scoring, twitter, storage, alerts
 from .providers.base import ImageResult
@@ -8,6 +9,7 @@ from .imaging import metrics, sanity, phash, collage, quality
 from .scoring import aesthetic
 from .storage import manifest
 from .config import Config
+from .logging_config import get_logger, ProgressLogger
 import pytz
 
 def category_by_time(categories: List[str], rotation_minutes: int, now=None):
@@ -164,6 +166,7 @@ async def generate_for_variant(variant_prompt: str, cfg: Config, semaphore: Opti
     Returns:
         List[Dict[str, Any]]: List of successful image candidates for this variant.
     """
+    logger = get_logger('generation')
     candidates = []
     
     # Loop through models by index, trying FAL first then Replicate fallback for same index
@@ -172,6 +175,8 @@ async def generate_for_variant(variant_prompt: str, cfg: Config, semaphore: Opti
             # Try FAL model at index i
             fal_model = cfg.image_generation.model_fal[i]
             fal_provider = cfg.image_generation.provider_order[0]
+            
+            logger.debug(f"Trying {fal_provider}/{fal_model} for variant: {variant_prompt[:50]}...")
             
             if semaphore:
                 async with semaphore:
@@ -194,6 +199,8 @@ async def generate_for_variant(variant_prompt: str, cfg: Config, semaphore: Opti
                 replicate_model = cfg.image_generation.model_replicate[i]
                 replicate_provider = cfg.image_generation.provider_order[1]
                 
+                logger.debug(f"FAL failed, trying {replicate_provider}/{replicate_model}")
+                
                 if semaphore:
                     async with semaphore:
                         imgres = await asyncio.to_thread(
@@ -212,14 +219,16 @@ async def generate_for_variant(variant_prompt: str, cfg: Config, semaphore: Opti
             
             # Add image candidate if available
             if imgres:
+                logger.debug(f"Successfully generated image with {imgres['provider']}/{imgres['model']}")
                 candidates.append({**imgres, "prompt": variant_prompt})
                 
         except Exception as e:
             # Log the error but continue with other model indices
             # This ensures one failing model doesn't stop the entire variant
-            print(f"Error generating image for variant '{variant_prompt}' with model index {i}: {e}")
+            logger.warning(f"Error generating image for variant '{variant_prompt[:50]}...' with model index {i}: {e}")
             continue
     
+    logger.debug(f"Generated {len(candidates)} candidates for variant")
     return candidates
 
 async def run_all_variants(variant_prompts: List[str], cfg: Config) -> List[Dict[str, Any]]:
@@ -233,10 +242,14 @@ async def run_all_variants(variant_prompts: List[str], cfg: Config) -> List[Dict
     Returns:
         List[Dict[str, Any]]: Flattened list of all successful image candidates.
     """
+    logger = get_logger('generation')
+    
     # Set up concurrency control
     max_concurrency = cfg.image_generation.max_concurrency
     if max_concurrency is None:
         max_concurrency = len(variant_prompts)
+    
+    logger.info(f"Starting parallel generation for {len(variant_prompts)} variants (max_concurrency: {max_concurrency})")
     
     semaphore = asyncio.Semaphore(max_concurrency) if max_concurrency > 0 else None
     
@@ -251,19 +264,23 @@ async def run_all_variants(variant_prompts: List[str], cfg: Config) -> List[Dict
     
     # Flatten successful results and handle exceptions
     candidates = []
+    failed_variants = 0
+    
     for i, result in enumerate(results):
         if isinstance(result, Exception):
-            # Log the exception but continue with other variants
-            print(f"Error processing variant '{variant_prompts[i]}': {result}")
+            failed_variants += 1
+            logger.error(f"Error processing variant '{variant_prompts[i][:50]}...': {result}")
             # Optionally send alert for failed variants
             try:
                 alerts.webhook.send_failure(f"variant failed: {variant_prompts[i]} - {str(result)}", cfg)
-            except:
-                pass  # Don't let alert failures stop the process
+            except Exception as alert_error:
+                logger.debug(f"Failed to send alert for variant failure: {alert_error}")
         else:
             # result is a list of candidates for this variant
             candidates.extend(result)
+            logger.debug(f"Variant {i+1} produced {len(result)} candidates")
     
+    logger.info(f"Parallel generation completed: {len(candidates)} total candidates, {failed_variants} failed variants")
     return candidates
 
 def generate_images_sequential(variant_prompts: List[str], cfg: Config) -> List[Dict[str, Any]]:
@@ -296,7 +313,7 @@ def generate_images_sequential(variant_prompts: List[str], cfg: Config) -> List[
     
     return candidates
 
-def post_once(dry_run: bool = False):
+def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = None, progress_logger: Optional[ProgressLogger] = None):
     """
     Execute the complete pipeline to generate, rank, and post a wallpaper image.
     
@@ -312,149 +329,283 @@ def post_once(dry_run: bool = False):
     
     Args:
         dry_run: If True, skip posting to social media. Defaults to False.
+        logger: Optional logger instance for detailed logging.
+        progress_logger: Optional progress logger for pipeline tracking.
         
     Returns:
         int: Exit code (0 for success, 1 for failure).
     """
-    cfg = config.load_config()
-
-    # A) Category selection based on configured method
-    category = select_category(cfg)
-
-    # B) Base prompt -> 3 prompt variants
-    base_prompt = prompts.make_base(category, cfg)
-    variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
-
-    # C) Generate images - use async parallel generation if enabled, otherwise sequential
-    if cfg.image_generation.async_enabled:
-        candidates = asyncio.run(run_all_variants(variant_prompts, cfg))
-    else:
-        candidates = generate_images_sequential(variant_prompts, cfg)
-
-    if not candidates:
-        alerts.webhook.send_failure("no images produced", cfg)
-        return 1
-
-    # D) Rank candidates
-    scored = []
-    for c in candidates:
-        b = metrics.brightness(c["image"])
-        e = metrics.entropy(c["image"])
-        if not sanity.passes_floors(b, e, cfg):
-            continue
-        
-        # Local quality assessment (includes hard floors)
-        passes_local, local_q = quality.evaluate_local(c["image"], cfg)
-        if not passes_local:
-            continue
-        
-        c["brightness"] = b
-        c["entropy"] = e
-        c["local_quality"] = local_q
-        scored.append(c)
+    # Set up logging if not provided
+    if logger is None:
+        logger = get_logger('pipeline')
+    if progress_logger is None:
+        from .logging_config import setup_logging
+        _, progress_logger = setup_logging()
     
-    # Add aesthetic scores - use parallel scoring if async is enabled
-    if scored:
+    try:
+        # Start pipeline tracking
+        total_steps = 10 if not dry_run else 9  # Skip posting step in dry run
+        progress_logger.start_pipeline(total_steps)
+        
+        # Step 1: Load configuration
+        progress_logger.step("Loading configuration")
+        cfg = config.load_config()
+        logger.debug(f"Configuration loaded: {len(cfg.categories)} categories, async_enabled={cfg.image_generation.async_enabled}")
+        progress_logger.success("Configuration loaded successfully")
+
+        # Step 2: Category selection
+        progress_logger.step("Selecting category")
+        category = select_category(cfg)
+        logger.info(f"Selected category: {category} (method: {cfg.category_selection_method})")
+        progress_logger.success(f"Category selected", f"{category}")
+
+        # Step 3: Generate prompts
+        progress_logger.step("Generating prompts")
+        base_prompt = prompts.make_base(category, cfg)
+        logger.info(f"Base prompt generated: {base_prompt[:100]}...")
+        
+        variant_prompts = prompts.make_variants_from_base(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg)
+        logger.info(f"Generated {len(variant_prompts)} prompt variants")
+        for i, vp in enumerate(variant_prompts, 1):
+            logger.debug(f"Variant {i}: {vp[:80]}...")
+        progress_logger.success(f"Generated {len(variant_prompts)} prompt variants")
+
+        # Step 4: Generate images
+        progress_logger.step("Generating images")
+        logger.info(f"Starting image generation (async: {cfg.image_generation.async_enabled})")
+        
         if cfg.image_generation.async_enabled:
-            # Use parallel aesthetic scoring
-            scored = asyncio.run(aesthetic.score_candidates_parallel(scored, cfg))
+            progress_logger.substep("Using parallel generation")
+            candidates = asyncio.run(run_all_variants(variant_prompts, cfg))
         else:
-            # Use sequential aesthetic scoring (fallback)
-            for c in scored:
-                image_url = c.get("image_url")
-                if image_url:
-                    a = aesthetic.aesthetic(image_url, cfg)
-                else:
-                    # No URL available, use default score
-                    a = 0.5
-                c["aesthetic"] = a
+            progress_logger.substep("Using sequential generation")
+            candidates = generate_images_sequential(variant_prompts, cfg)
 
-    if not scored:
-        alerts.webhook.send_failure("all candidates failed sanity/scoring", cfg)
-        return 1
+        logger.info(f"Generated {len(candidates)} image candidates")
+        if not candidates:
+            progress_logger.error("No images were generated")
+            alerts.webhook.send_failure("no images produced", cfg)
+            progress_logger.finish_pipeline(success=False)
+            return 1
+        
+        progress_logger.success(f"Generated {len(candidates)} image candidates")
 
-    scored = normalize_and_rescore(scored, cfg)
-    
-    # Create collage of all candidates before winner selection
-    date_str = today_local()
-    slug = storage.paths.make_slug(category, base_prompt)
-    out_dir = storage.paths.output_dir(date_str, slug)
-    collage_path = collage.save_collage(scored, out_dir, "candidates_collage.jpg")
-    
-    recent_hashes = manifest.load_recent_hashes(limit=200)
+        # Step 5: Score and filter candidates
+        progress_logger.step("Scoring and filtering candidates")
+        scored = []
+        filtered_sanity = 0
+        filtered_quality = 0
+        
+        for i, c in enumerate(candidates):
+            logger.debug(f"Processing candidate {i+1}/{len(candidates)}")
+            
+            # Basic metrics
+            b = metrics.brightness(c["image"])
+            e = metrics.entropy(c["image"])
+            
+            # Sanity checks
+            if not sanity.passes_floors(b, e, cfg):
+                filtered_sanity += 1
+                logger.debug(f"Candidate {i+1} failed sanity check (brightness: {b:.2f}, entropy: {e:.3f})")
+                continue
+            
+            # Local quality assessment
+            passes_local, local_q = quality.evaluate_local(c["image"], cfg)
+            if not passes_local:
+                filtered_quality += 1
+                logger.debug(f"Candidate {i+1} failed quality check (score: {local_q:.4f})")
+                continue
+            
+            c["brightness"] = b
+            c["entropy"] = e
+            c["local_quality"] = local_q
+            scored.append(c)
+            logger.debug(f"Candidate {i+1} passed initial scoring (B:{b:.2f}, E:{e:.3f}, Q:{local_q:.4f})")
+        
+        logger.info(f"Filtering results: {len(scored)} passed, {filtered_sanity} failed sanity, {filtered_quality} failed quality")
+        progress_logger.substep(f"Filtered candidates", f"{len(scored)} passed initial scoring")
+        
+        # Add aesthetic scores
+        if scored:
+            progress_logger.substep("Computing aesthetic scores")
+            if cfg.image_generation.async_enabled:
+                logger.debug("Using parallel aesthetic scoring")
+                scored = asyncio.run(aesthetic.score_candidates_parallel(scored, cfg))
+            else:
+                logger.debug("Using sequential aesthetic scoring")
+                for c in scored:
+                    image_url = c.get("image_url")
+                    if image_url:
+                        a = aesthetic.aesthetic(image_url, cfg)
+                    else:
+                        a = 0.5
+                    c["aesthetic"] = a
+            
+            # Log aesthetic scores
+            for i, c in enumerate(scored):
+                logger.debug(f"Candidate {i+1} aesthetic score: {c['aesthetic']:.4f}")
 
-    winner = None
-    for c in sorted(scored, key=lambda x: x["final"], reverse=True):
-        if not phash.is_duplicate(phash.phash_hex(c["image"]), recent_hashes, cfg.ranking.phash_distance_min):
-            winner = c
-            break
-    if winner is None:
-        alerts.webhook.send_failure("near-duplicate with manifest history", cfg)
-        return 0  # not fatal
+        if not scored:
+            progress_logger.error("All candidates failed scoring")
+            alerts.webhook.send_failure("all candidates failed sanity/scoring", cfg)
+            progress_logger.finish_pipeline(success=False)
+            return 1
 
-    # E) Upscale winner -> wallpaper variants
-    base_img = winner["image"]
-    if cfg.upscale.enabled:
-        from .providers import upscale
-        base_img = upscale.upscale(base_img, cfg.upscale.provider, cfg.upscale.model, cfg.upscale.factor)
-        if base_img is None:
-            base_img = winner["image"]  # fallback
+        # Normalize and calculate final scores
+        scored = normalize_and_rescore(scored, cfg)
+        logger.info(f"Final scoring completed for {len(scored)} candidates")
+        
+        # Log top candidates
+        top_candidates = sorted(scored, key=lambda x: x["final"], reverse=True)[:3]
+        for i, c in enumerate(top_candidates):
+            logger.info(f"Top candidate {i+1}: final={c['final']:.4f}, aesthetic={c['aesthetic']:.4f}, provider={c['provider']}")
+        
+        progress_logger.success(f"Scored {len(scored)} candidates")
 
-    from .imaging import variants
-    wallpapers = variants.make_wallpaper_variants(base_img, cfg.wallpaper_variants)
+        # Step 6: Create collage and select winner
+        progress_logger.step("Creating collage and selecting winner")
+        date_str = today_local()
+        slug = storage.paths.make_slug(category, base_prompt)
+        out_dir = storage.paths.output_dir(date_str, slug)
+        logger.debug(f"Output directory: {out_dir}")
+        
+        collage_path = collage.save_collage(scored, out_dir, "candidates_collage.jpg")
+        logger.info(f"Collage saved to: {collage_path}")
+        progress_logger.substep("Collage created")
+        
+        # Load recent hashes for duplicate detection
+        recent_hashes = manifest.load_recent_hashes(limit=200)
+        logger.debug(f"Loaded {len(recent_hashes)} recent hashes for duplicate detection")
+        
+        # Select winner (avoiding duplicates)
+        winner = None
+        for i, c in enumerate(sorted(scored, key=lambda x: x["final"], reverse=True)):
+            candidate_hash = phash.phash_hex(c["image"])
+            if not phash.is_duplicate(candidate_hash, recent_hashes, cfg.ranking.phash_distance_min):
+                winner = c
+                logger.info(f"Winner selected: rank {i+1}, final_score={c['final']:.4f}, provider={c['provider']}")
+                break
+            else:
+                logger.debug(f"Candidate {i+1} rejected as duplicate (hash: {candidate_hash})")
+        
+        if winner is None:
+            progress_logger.warning("All candidates are near-duplicates")
+            alerts.webhook.send_failure("near-duplicate with manifest history", cfg)
+            progress_logger.finish_pipeline(success=True)  # Not fatal
+            return 0
+        
+        progress_logger.success("Winner selected", f"score: {winner['final']:.4f}")
 
-    # Alt text
-    alt = prompts.make_alt_text(base_prompt, winner["prompt"], cfg)
+        # Step 7: Upscale winner
+        progress_logger.step("Upscaling winner")
+        base_img = winner["image"]
+        if cfg.upscale.enabled:
+            logger.info(f"Upscaling with {cfg.upscale.provider}/{cfg.upscale.model} (factor: {cfg.upscale.factor}x)")
+            from .providers import upscale
+            upscaled_img = upscale.upscale(base_img, cfg.upscale.provider, cfg.upscale.model, cfg.upscale.factor)
+            if upscaled_img is not None:
+                base_img = upscaled_img
+                progress_logger.success("Image upscaled successfully")
+            else:
+                logger.warning("Upscaling failed, using original image")
+                progress_logger.warning("Upscaling failed, using original")
+        else:
+            logger.info("Upscaling disabled, using original image")
+            progress_logger.substep("Upscaling disabled")
 
-    # Save (reuse the out_dir from collage creation)
-    public_paths = storage.fs.save_images(out_dir, wallpapers)
+        # Step 8: Create wallpaper variants
+        progress_logger.step("Creating wallpaper variants")
+        from .imaging import variants
+        wallpapers = variants.make_wallpaper_variants(base_img, cfg.wallpaper_variants)
+        logger.info(f"Created {len(wallpapers)} wallpaper variants: {list(wallpapers.keys())}")
+        progress_logger.success(f"Created {len(wallpapers)} wallpaper variants")
 
-    ph = phash.phash_hex(wallpapers[next(iter(wallpapers))])
+        # Step 9: Generate alt text and save files
+        progress_logger.step("Saving files and metadata")
+        alt = prompts.make_alt_text(base_prompt, winner["prompt"], cfg)
+        logger.debug(f"Alt text generated: {alt[:100]}...")
+        
+        public_paths = storage.fs.save_images(out_dir, wallpapers)
+        logger.info(f"Images saved to: {out_dir}")
+        
+        ph = phash.phash_hex(wallpapers[next(iter(wallpapers))])
+        
+        meta = {
+            "category": category,
+            "base_prompt": base_prompt,
+            "variant_prompt": winner["prompt"],
+            "provider": winner["provider"],
+            "model": winner["model"],
+            "seed": winner.get("seed"),
+            "created_at": now_iso(),
+            "alt_text": alt,
+            "phash": ph,
+            "scores": {
+                "aesthetic": round(winner["aesthetic"], 4),
+                "brightness": round(winner["brightness"], 2),
+                "entropy": round(winner["entropy"], 3),
+                "local_quality": round(winner["local_quality"], 4),
+                "final": round(winner["final"], 4)
+            },
+            "files": public_paths,
+            "tweet_id": None
+        }
+        storage.fs.save_meta(out_dir, meta)
+        
+        manifest.append({
+            "id": f"{date_str}_{category}_{slug}",
+            "date": date_str,
+            "category": category,
+            "files": public_paths,
+            "tweet_id": None,
+            "phash": ph
+        })
+        
+        logger.info("Metadata saved and manifest updated")
+        progress_logger.success("Files and metadata saved")
 
-    meta = {
-        "category": category,
-        "base_prompt": base_prompt,
-        "variant_prompt": winner["prompt"],
-        "provider": winner["provider"],
-        "model": winner["model"],
-        "seed": winner.get("seed"),
-        "created_at": now_iso(),
-        "alt_text": alt,
-        "phash": ph,
-        "scores": {
-            "aesthetic": round(winner["aesthetic"], 4),
-            "brightness": round(winner["brightness"], 2),
-            "entropy": round(winner["entropy"], 3),
-            "local_quality": round(winner["local_quality"], 4),
-            "final": round(winner["final"], 4)
-        },
-        "files": public_paths,
-        "tweet_id": None
-    }
-    storage.fs.save_meta(out_dir, meta)
+        if dry_run:
+            logger.info("Dry run mode - skipping social media posting")
+            progress_logger.finish_pipeline(success=True)
+            return 0
 
-    manifest.append({
-        "id": f"{date_str}_{category}_{slug}",
-        "date": date_str,
-        "category": category,
-        "files": public_paths,
-        "tweet_id": None,
-        "phash": ph
-    })
+        # Step 10: Post to social media
+        progress_logger.step("Posting to social media")
+        first_key = "phone_9x16_2k" if "phone_9x16_2k" in public_paths else next(iter(public_paths))
+        logger.info(f"Posting image variant: {first_key}")
+        
+        try:
+            media_ids = twitter.client.upload_media([fs_abs(public_paths[first_key])])
+            logger.debug(f"Media uploaded, ID: {media_ids[0]}")
+            
+            twitter.client.set_alt_text(media_ids[0], alt)
+            logger.debug("Alt text set for media")
+            
+            tweet_id = twitter.client.create_tweet(text="", media_ids=media_ids)
+            logger.info(f"Tweet posted successfully, ID: {tweet_id}")
+            
+            # Update records with tweet ID
+            manifest.update_tweet_id(f"{date_str}_{category}_{slug}", tweet_id)
+            meta["tweet_id"] = tweet_id
+            storage.fs.save_meta(out_dir, meta)
+            
+            tweet_link = tweet_url(tweet_id)
+            alerts.webhook.send_success(category, meta["model"], tweet_link, public_paths[first_key], cfg)
+            
+            progress_logger.success("Posted to social media", f"Tweet ID: {tweet_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to post to social media: {e}")
+            progress_logger.error("Social media posting failed", str(e))
+            progress_logger.finish_pipeline(success=False)
+            return 1
 
-    if dry_run:
+        progress_logger.finish_pipeline(success=True)
+        logger.info("Pipeline completed successfully")
         return 0
-
-    # Post to X
-    first_key = "phone_9x16_2k" if "phone_9x16_2k" in public_paths else next(iter(public_paths))
-    media_ids = twitter.client.upload_media([fs_abs(public_paths[first_key])])
-    twitter.client.set_alt_text(media_ids[0], alt)
-    tweet_id = twitter.client.create_tweet(text="", media_ids=media_ids)
-
-    # Update
-    manifest.update_tweet_id(f"{date_str}_{category}_{slug}", tweet_id)
-    meta["tweet_id"] = tweet_id
-    storage.fs.save_meta(out_dir, meta)
-
-    alerts.webhook.send_success(category, meta["model"], tweet_url(tweet_id), public_paths[first_key], cfg)
-    return 0
+        
+    except Exception as e:
+        logger.error(f"Pipeline failed with error: {e}", exc_info=True)
+        progress_logger.error("Pipeline failed", str(e))
+        progress_logger.finish_pipeline(success=False)
+        return 1

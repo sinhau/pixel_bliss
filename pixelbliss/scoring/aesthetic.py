@@ -77,7 +77,9 @@ def aesthetic_replicate(image_url: str, cfg: Config) -> float:
         return min(max(normalized_score, 0.0), 1.0)
         
     except Exception as e:
-        print(f"Replicate aesthetic scoring failed: {e}")
+        from ..logging_config import get_logger
+        logger = get_logger('scoring.aesthetic')
+        logger.error(f"Replicate aesthetic scoring failed: {e}")
         return 0.5
 
 def aesthetic(image_url: str, cfg: Config) -> float:

@@ -70,5 +70,7 @@ def generate_fal_image(prompt: str, model: str) -> Optional[ImageResult]:
     try:
         return _generate_fal_image_with_retry(prompt, model)
     except Exception as e:
-        print(f"FAL generation failed after retries: {e}")
+        from ..logging_config import get_logger
+        logger = get_logger('providers.fal')
+        logger.error(f"FAL generation failed after retries: {e}")
         return None

@@ -40,7 +40,9 @@ def generate_dummy_local_image(prompt: str, model: str) -> Optional[ImageResult]
         
         # Check if the image file exists
         if not os.path.exists(image_path):
-            print(f"Dummy image not found at: {image_path}")
+            from ..logging_config import get_logger
+            logger = get_logger('providers.dummy_local')
+            logger.warning(f"Dummy image not found at: {image_path}")
             return None
         
         # Load the image
@@ -59,5 +61,7 @@ def generate_dummy_local_image(prompt: str, model: str) -> Optional[ImageResult]
         }
         
     except Exception as e:
-        print(f"Dummy local generation failed: {e}")
+        from ..logging_config import get_logger
+        logger = get_logger('providers.dummy_local')
+        logger.error(f"Dummy local generation failed: {e}")
         return None

@@ -223,6 +223,7 @@ class TestPostOnce:
         """Test post_once when no image candidates are generated."""
         # Setup mocks
         mock_cfg = Mock()
+        mock_cfg.categories = ["test_category"]  # Add categories list
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
@@ -273,6 +274,7 @@ class TestPostOnce:
         """Test post_once dry_run success path."""
         # Setup config
         mock_cfg = Mock()
+        mock_cfg.categories = ["test"]  # Add categories list
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
@@ -334,6 +336,7 @@ class TestPostOnce:
         """Test post_once when sanity check fails."""
         # Setup config
         mock_cfg = Mock()
+        mock_cfg.categories = ["test"]  # Add categories list
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
@@ -378,6 +381,7 @@ class TestPostOnce:
         """Test post_once when local quality check fails."""
         # Setup config
         mock_cfg = Mock()
+        mock_cfg.categories = ["test"]  # Add categories list
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
@@ -432,6 +436,7 @@ class TestPostOnce:
         """Test post_once when winner is duplicate."""
         # Setup config
         mock_cfg = Mock()
+        mock_cfg.categories = ["test"]  # Add categories list
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
@@ -513,6 +518,7 @@ class TestPostOnce:
         """Test post_once full execution (non-dry-run)."""
         # Setup config
         mock_cfg = Mock()
+        mock_cfg.categories = ["test"]  # Add categories list
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
@@ -771,7 +777,7 @@ class TestAsyncIntegration:
     @patch('pixelbliss.run_once.metrics.entropy')
     @patch('pixelbliss.run_once.sanity.passes_floors')
     @patch('pixelbliss.run_once.quality.evaluate_local')
-    @patch('pixelbliss.run_once.aesthetic.aesthetic')
+    @patch('pixelbliss.run_once.aesthetic.score_candidates_parallel')
     @patch('pixelbliss.run_once.normalize_and_rescore')
     @patch('pixelbliss.run_once.today_local')
     @patch('pixelbliss.run_once.storage.paths.make_slug')
@@ -789,11 +795,12 @@ class TestAsyncIntegration:
     def test_post_once_async_enabled(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
                                    mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                    mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
-                                   mock_aesthetic, mock_quality, mock_floors, mock_entropy, mock_brightness,
+                                   mock_score_parallel, mock_quality, mock_floors, mock_entropy, mock_brightness,
                                    mock_asyncio_run, mock_variants, mock_base, mock_category, mock_config):
         """Test post_once uses async generation when enabled."""
         # Setup config with async enabled
         mock_cfg = Mock()
+        mock_cfg.categories = ["test"]  # Add categories list
         mock_cfg.image_generation.async_enabled = True
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
@@ -813,14 +820,32 @@ class TestAsyncIntegration:
             {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"},
             {"image": mock_image, "provider": "fal", "model": "test", "seed": 124, "prompt": "variant2"}
         ]
-        mock_asyncio_run.return_value = mock_candidates
+        
+        # Mock asyncio.run to return candidates for image generation, and scored candidates for aesthetic scoring
+        def mock_asyncio_side_effect(coro):
+            # First call is for image generation
+            if mock_asyncio_run.call_count == 0:
+                return mock_candidates
+            # Second call is for aesthetic scoring - return the same candidates with aesthetic scores
+            else:
+                return [
+                    {**c, "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8} 
+                    for c in mock_candidates
+                ]
+        
+        mock_asyncio_run.side_effect = mock_asyncio_side_effect
         
         # Mock scoring to pass all checks
         mock_brightness.return_value = 150
         mock_entropy.return_value = 4.5
         mock_floors.return_value = True
         mock_quality.return_value = (True, 0.8)
-        mock_aesthetic.return_value = 0.7
+        
+        # Mock parallel aesthetic scoring to return candidates with aesthetic scores
+        mock_score_parallel.return_value = [
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8},
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 124, "prompt": "variant2", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}
+        ]
         
         # Mock rescoring
         mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
@@ -877,6 +902,7 @@ class TestAsyncIntegration:
         """Test post_once uses sequential generation when async disabled."""
         # Setup config with async disabled
         mock_cfg = Mock()
+        mock_cfg.categories = ["test"]  # Add categories list
         mock_cfg.image_generation.async_enabled = False
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
@@ -958,6 +984,7 @@ class TestAsyncIntegration:
         """Test post_once uses sequential generation when async disabled and no image_url available."""
         # Setup config with async disabled
         mock_cfg = Mock()
+        mock_cfg.categories = ["test"]  # Add categories list
         mock_cfg.image_generation.async_enabled = False
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
