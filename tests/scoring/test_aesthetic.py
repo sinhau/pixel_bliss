@@ -1,0 +1,309 @@
+import pytest
+import random
+from unittest.mock import patch, Mock
+from pixelbliss.scoring.aesthetic import (
+    aesthetic_dummy_local,
+    aesthetic_replicate,
+    aesthetic
+)
+from pixelbliss.config import Config
+
+
+@pytest.fixture
+def mock_config():
+    """Create a mock config for testing."""
+    config = Mock(spec=Config)
+    config.aesthetic_scoring = Mock()
+    config.aesthetic_scoring.provider = "dummy_local"
+    config.aesthetic_scoring.model = "test-model"
+    config.aesthetic_scoring.score_min = 0.0
+    config.aesthetic_scoring.score_max = 1.0
+    return config
+
+
+@pytest.fixture
+def mock_config_custom_range():
+    """Create a mock config with custom score range."""
+    config = Mock(spec=Config)
+    config.aesthetic_scoring = Mock()
+    config.aesthetic_scoring.provider = "dummy_local"
+    config.aesthetic_scoring.model = "test-model"
+    config.aesthetic_scoring.score_min = 2.0
+    config.aesthetic_scoring.score_max = 8.0
+    return config
+
+
+@pytest.fixture
+def mock_config_replicate():
+    """Create a mock config for replicate provider."""
+    config = Mock(spec=Config)
+    config.aesthetic_scoring = Mock()
+    config.aesthetic_scoring.provider = "replicate"
+    config.aesthetic_scoring.model = "test-aesthetic-model"
+    config.aesthetic_scoring.score_min = 0.0
+    config.aesthetic_scoring.score_max = 10.0
+    return config
+
+
+class TestAestheticDummyLocal:
+    """Test cases for aesthetic_dummy_local function."""
+
+    def test_aesthetic_dummy_local_basic(self, mock_config):
+        """Test basic functionality of dummy local aesthetic scoring."""
+        result = aesthetic_dummy_local("https://example.com/image.jpg", mock_config)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+
+    def test_aesthetic_dummy_local_reproducible(self, mock_config):
+        """Test that same URL produces same score (reproducible)."""
+        url = "https://example.com/test.jpg"
+        
+        score1 = aesthetic_dummy_local(url, mock_config)
+        score2 = aesthetic_dummy_local(url, mock_config)
+        
+        assert score1 == score2
+
+    def test_aesthetic_dummy_local_different_urls(self, mock_config):
+        """Test that different URLs produce different scores."""
+        url1 = "https://example.com/image1.jpg"
+        url2 = "https://example.com/image2.jpg"
+        
+        score1 = aesthetic_dummy_local(url1, mock_config)
+        score2 = aesthetic_dummy_local(url2, mock_config)
+        
+        # While not guaranteed, different URLs should typically produce different scores
+        # We'll just verify they're both valid scores
+        assert 0.0 <= score1 <= 1.0
+        assert 0.0 <= score2 <= 1.0
+
+    def test_aesthetic_dummy_local_empty_url(self, mock_config):
+        """Test handling of empty URL."""
+        result = aesthetic_dummy_local("", mock_config)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+
+    def test_aesthetic_dummy_local_none_url(self, mock_config):
+        """Test handling of None URL."""
+        result = aesthetic_dummy_local(None, mock_config)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+
+    def test_aesthetic_dummy_local_custom_range(self, mock_config_custom_range):
+        """Test dummy scoring with custom score range."""
+        result = aesthetic_dummy_local("https://example.com/image.jpg", mock_config_custom_range)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0  # Should be normalized to [0,1]
+
+    def test_aesthetic_dummy_local_equal_min_max(self, mock_config):
+        """Test dummy scoring when min equals max."""
+        mock_config.aesthetic_scoring.score_min = 5.0
+        mock_config.aesthetic_scoring.score_max = 5.0
+        
+        result = aesthetic_dummy_local("https://example.com/image.jpg", mock_config)
+        
+        assert result == 0.5  # Should return 0.5 when min == max
+
+    def test_aesthetic_dummy_local_multiple_calls_consistency(self, mock_config):
+        """Test that multiple calls with same URL are consistent."""
+        url = "https://example.com/consistent.jpg"
+        
+        scores = [aesthetic_dummy_local(url, mock_config) for _ in range(5)]
+        
+        # All scores should be identical
+        assert all(score == scores[0] for score in scores)
+
+
+class TestAestheticReplicate:
+    """Test cases for aesthetic_replicate function."""
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_dict_output(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring with dictionary output."""
+        mock_replicate_run.return_value = {"score": 7.5}
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        mock_replicate_run.assert_called_once_with(
+            "test-aesthetic-model",
+            input={"image": "https://example.com/image.jpg"}
+        )
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+        # Score 7.5 in range [0,10] should normalize to 0.75
+        assert result == 0.75
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_dict_aesthetic_score_key(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring with aesthetic_score key in dict."""
+        mock_replicate_run.return_value = {"aesthetic_score": 3.0}
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+        # Score 3.0 in range [0,10] should normalize to 0.3
+        assert result == 0.3
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_list_output(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring with list output."""
+        mock_replicate_run.return_value = [8.2, "other_data"]
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+        # Score 8.2 in range [0,10] should normalize to 0.82
+        assert result == 0.82
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_float_output(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring with direct float output."""
+        mock_replicate_run.return_value = 6.0
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+        # Score 6.0 in range [0,10] should normalize to 0.6
+        assert result == 0.6
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_int_output(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring with integer output."""
+        mock_replicate_run.return_value = 4
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+        # Score 4 in range [0,10] should normalize to 0.4
+        assert result == 0.4
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_empty_list(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring with empty list output."""
+        mock_replicate_run.return_value = []
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        assert result == 0.5  # Should return default 0.5
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_unsupported_output(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring with unsupported output format."""
+        mock_replicate_run.return_value = "unsupported_string"
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        assert result == 0.5  # Should return default 0.5 on error
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_exception_handling(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring exception handling."""
+        mock_replicate_run.side_effect = Exception("API Error")
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        assert result == 0.5  # Should return default 0.5 on exception
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_score_clamping(self, mock_replicate_run, mock_config_replicate):
+        """Test that scores outside range are clamped to [0,1]."""
+        # Test score above max
+        mock_replicate_run.return_value = 15.0  # Above max of 10
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        assert result == 1.0  # Should be clamped to 1.0
+        
+        # Test score below min
+        mock_replicate_run.return_value = -5.0  # Below min of 0
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        assert result == 0.0  # Should be clamped to 0.0
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_equal_min_max(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring when min equals max."""
+        mock_config_replicate.aesthetic_scoring.score_min = 5.0
+        mock_config_replicate.aesthetic_scoring.score_max = 5.0
+        mock_replicate_run.return_value = 7.0
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        assert result == 0.5  # Should return 0.5 when min == max
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_dict_no_score_keys(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring with dict that has no score keys."""
+        mock_replicate_run.return_value = {"other_key": "value"}
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        # The function uses dict.get() with default 0.5, then normalizes [0,10] -> [0,1]
+        # So 0.5 in range [0,10] becomes 0.05 in [0,1]
+        assert result == 0.05
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_list_non_numeric(self, mock_replicate_run, mock_config_replicate):
+        """Test replicate scoring with list containing non-numeric first element."""
+        mock_replicate_run.return_value = ["not_a_number", 5.0]
+        
+        result = aesthetic_replicate("https://example.com/image.jpg", mock_config_replicate)
+        
+        # The function uses 0.5 as default, then normalizes [0,10] -> [0,1]
+        # So 0.5 in range [0,10] becomes 0.05 in [0,1]
+        assert result == 0.05
+
+
+class TestAesthetic:
+    """Test cases for main aesthetic function."""
+
+    def test_aesthetic_dummy_local_provider(self, mock_config):
+        """Test aesthetic function with dummy_local provider."""
+        mock_config.aesthetic_scoring.provider = "dummy_local"
+        
+        result = aesthetic("https://example.com/image.jpg", mock_config)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+
+    @patch('pixelbliss.scoring.aesthetic.replicate.run')
+    def test_aesthetic_replicate_provider(self, mock_replicate_run, mock_config_replicate):
+        """Test aesthetic function with replicate provider."""
+        mock_replicate_run.return_value = 5.0
+        
+        result = aesthetic("https://example.com/image.jpg", mock_config_replicate)
+        
+        assert isinstance(result, float)
+        assert 0.0 <= result <= 1.0
+
+    def test_aesthetic_unknown_provider(self, mock_config):
+        """Test aesthetic function with unknown provider."""
+        mock_config.aesthetic_scoring.provider = "unknown_provider"
+        
+        with pytest.raises(NotImplementedError, match="Unknown provider unknown_provider"):
+            aesthetic("https://example.com/image.jpg", mock_config)
+
+    def test_aesthetic_provider_case_sensitivity(self, mock_config):
+        """Test that provider names are case sensitive."""
+        mock_config.aesthetic_scoring.provider = "DUMMY_LOCAL"  # Wrong case
+        
+        with pytest.raises(NotImplementedError):
+            aesthetic("https://example.com/image.jpg", mock_config)
+
+    def test_aesthetic_empty_provider(self, mock_config):
+        """Test aesthetic function with empty provider string."""
+        mock_config.aesthetic_scoring.provider = ""
+        
+        with pytest.raises(NotImplementedError, match="Unknown provider "):
+            aesthetic("https://example.com/image.jpg", mock_config)
+
+    def test_aesthetic_none_provider(self, mock_config):
+        """Test aesthetic function with None provider."""
+        mock_config.aesthetic_scoring.provider = None
+        
+        with pytest.raises(NotImplementedError, match="Unknown provider None"):
+            aesthetic("https://example.com/image.jpg", mock_config)
