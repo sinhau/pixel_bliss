@@ -1,2 +1,4 @@
 .DS_Store
 .env.example
+.vscode/
+pixelbliss/__pycache__/

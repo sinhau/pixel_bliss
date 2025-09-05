@@ -8,4 +8,5 @@ openai
 tweepy
 replicate
 pytz
+PyYAML
 # fal_client  # hypothetical, assume installed separately
