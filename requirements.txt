@@ -14,3 +14,4 @@ opencv-python
 pytest
 pytest-mock
 pytest-cov
+pytest-asyncio

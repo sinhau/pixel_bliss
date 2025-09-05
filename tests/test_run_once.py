@@ -1,11 +1,13 @@
 import pytest
 import datetime
 import pytz
-from unittest.mock import Mock, patch
+import asyncio
+from unittest.mock import Mock, patch, AsyncMock
 from pixelbliss.run_once import (
     category_by_time, category_by_random, select_category,
     normalize_and_rescore, today_local, now_iso, tweet_url, fs_abs,
-    try_in_order, post_once
+    try_in_order, post_once, generate_for_variant, run_all_variants,
+    generate_images_sequential
 )
 
 
@@ -225,6 +227,8 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_config.return_value = mock_cfg
         
@@ -273,6 +277,8 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_cfg.upscale.enabled = False
         mock_config.return_value = mock_cfg
@@ -330,6 +336,8 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_config.return_value = mock_cfg
         
@@ -370,6 +378,8 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_config.return_value = mock_cfg
         
@@ -422,6 +432,8 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_config.return_value = mock_cfg
         
@@ -498,6 +510,8 @@ class TestPostOnce:
         mock_cfg.image_generation.model_fal = ["model1"]
         mock_cfg.image_generation.provider_order = ["fal", "replicate"]
         mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.max_concurrency = None
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_cfg.upscale.enabled = True
         mock_cfg.upscale.provider = "test_provider"
@@ -554,3 +568,331 @@ class TestPostOnce:
             mock_create_tweet.assert_called_once()
             mock_update_tweet.assert_called_once()
             mock_send_success.assert_called_once()
+
+
+class TestAsyncImageGeneration:
+    """Test async image generation functions."""
+
+    @pytest.mark.asyncio
+    async def test_generate_for_variant_success_fal(self, sample_config):
+        """Test generate_for_variant when FAL succeeds."""
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
+        
+        with patch('pixelbliss.providers.base.generate_image', return_value=mock_result) as mock_generate:
+            result = await generate_for_variant("test prompt", sample_config)
+            
+            assert len(result) == 1
+            assert result[0]["prompt"] == "test prompt"
+            assert result[0]["provider"] == "fal"
+            mock_generate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_generate_for_variant_fal_fails_replicate_succeeds(self, sample_config):
+        """Test generate_for_variant when FAL fails but Replicate succeeds."""
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "replicate", "model": "test_model", "seed": 123}
+        
+        with patch('pixelbliss.providers.base.generate_image', side_effect=[None, mock_result]) as mock_generate:
+            result = await generate_for_variant("test prompt", sample_config)
+            
+            assert len(result) == 1
+            assert result[0]["prompt"] == "test prompt"
+            assert result[0]["provider"] == "replicate"
+            assert mock_generate.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_generate_for_variant_all_fail(self, sample_config):
+        """Test generate_for_variant when all providers fail."""
+        with patch('pixelbliss.providers.base.generate_image', return_value=None) as mock_generate:
+            result = await generate_for_variant("test prompt", sample_config)
+            
+            assert len(result) == 0
+            assert mock_generate.call_count == 2  # FAL + Replicate for each model
+
+    @pytest.mark.asyncio
+    async def test_generate_for_variant_with_semaphore(self, sample_config):
+        """Test generate_for_variant with concurrency semaphore."""
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
+        semaphore = asyncio.Semaphore(1)
+        
+        with patch('pixelbliss.providers.base.generate_image', return_value=mock_result) as mock_generate:
+            result = await generate_for_variant("test prompt", sample_config, semaphore)
+            
+            assert len(result) == 1
+            assert result[0]["prompt"] == "test prompt"
+            mock_generate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_generate_for_variant_exception_handling(self, sample_config):
+        """Test generate_for_variant handles exceptions gracefully."""
+        with patch('pixelbliss.providers.base.generate_image', side_effect=Exception("API Error")) as mock_generate:
+            result = await generate_for_variant("test prompt", sample_config)
+            
+            assert len(result) == 0  # Should return empty list on exception
+
+    @pytest.mark.asyncio
+    async def test_run_all_variants_success(self, sample_config):
+        """Test run_all_variants with successful generation."""
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
+        
+        with patch('pixelbliss.providers.base.generate_image', return_value=mock_result) as mock_generate:
+            result = await run_all_variants(["prompt1", "prompt2"], sample_config)
+            
+            assert len(result) == 2  # One result per variant
+            assert result[0]["prompt"] == "prompt1"
+            assert result[1]["prompt"] == "prompt2"
+
+    @pytest.mark.asyncio
+    async def test_run_all_variants_with_concurrency_limit(self, sample_config):
+        """Test run_all_variants with concurrency limit."""
+        sample_config.image_generation.max_concurrency = 1
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
+        
+        with patch('pixelbliss.providers.base.generate_image', return_value=mock_result) as mock_generate:
+            result = await run_all_variants(["prompt1", "prompt2"], sample_config)
+            
+            assert len(result) == 2
+            assert result[0]["prompt"] == "prompt1"
+            assert result[1]["prompt"] == "prompt2"
+
+    @pytest.mark.asyncio
+    async def test_run_all_variants_with_exceptions(self, sample_config):
+        """Test run_all_variants handles variant exceptions."""
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
+        
+        # First variant succeeds, second fails
+        with patch('pixelbliss.providers.base.generate_image', side_effect=[mock_result, Exception("API Error")]) as mock_generate:
+            with patch('pixelbliss.alerts.webhook.send_failure') as mock_alert:
+                result = await run_all_variants(["prompt1", "prompt2"], sample_config)
+                
+                assert len(result) == 1  # Only successful variant
+                assert result[0]["prompt"] == "prompt1"
+
+    @pytest.mark.asyncio
+    async def test_run_all_variants_with_alert_failure(self, sample_config):
+        """Test run_all_variants handles alert webhook failures gracefully."""
+        # Mock generate_for_variant to raise an exception
+        with patch('pixelbliss.run_once.generate_for_variant', side_effect=Exception("Variant Error")) as mock_generate:
+            # Mock alerts.webhook.send_failure to also raise an exception
+            with patch('pixelbliss.alerts.webhook.send_failure', side_effect=Exception("Alert Error")) as mock_alert:
+                result = await run_all_variants(["prompt1"], sample_config)
+                
+                assert len(result) == 0  # No successful variants
+                mock_alert.assert_called_once()  # Alert was attempted
+
+    @pytest.mark.asyncio
+    async def test_run_all_variants_no_concurrency_limit(self, sample_config):
+        """Test run_all_variants with no concurrency limit (None)."""
+        sample_config.image_generation.max_concurrency = None
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
+        
+        with patch('pixelbliss.providers.base.generate_image', return_value=mock_result) as mock_generate:
+            result = await run_all_variants(["prompt1", "prompt2", "prompt3"], sample_config)
+            
+            assert len(result) == 3
+            for i, res in enumerate(result):
+                assert res["prompt"] == f"prompt{i+1}"
+
+    def test_generate_images_sequential_success(self, sample_config):
+        """Test generate_images_sequential with successful generation."""
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "fal", "model": "test_model", "seed": 123}
+        
+        with patch('pixelbliss.providers.base.generate_image', return_value=mock_result) as mock_generate:
+            result = generate_images_sequential(["prompt1", "prompt2"], sample_config)
+            
+            assert len(result) == 2
+            assert result[0]["prompt"] == "prompt1"
+            assert result[1]["prompt"] == "prompt2"
+
+    def test_generate_images_sequential_fal_fails_replicate_succeeds(self, sample_config):
+        """Test generate_images_sequential when FAL fails but Replicate succeeds."""
+        mock_image = Mock()
+        mock_result = {"image": mock_image, "provider": "replicate", "model": "test_model", "seed": 123}
+        
+        with patch('pixelbliss.providers.base.generate_image', side_effect=[None, mock_result]) as mock_generate:
+            result = generate_images_sequential(["prompt1"], sample_config)
+            
+            assert len(result) == 1
+            assert result[0]["prompt"] == "prompt1"
+            assert result[0]["provider"] == "replicate"
+            assert mock_generate.call_count == 2  # FAL then Replicate
+
+    def test_generate_images_sequential_all_fail(self, sample_config):
+        """Test generate_images_sequential when all providers fail."""
+        with patch('pixelbliss.providers.base.generate_image', return_value=None) as mock_generate:
+            result = generate_images_sequential(["prompt1"], sample_config)
+            
+            assert len(result) == 0
+            assert mock_generate.call_count == 2  # FAL + Replicate for each model
+
+
+class TestAsyncIntegration:
+    """Test async integration with post_once function."""
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.asyncio.run')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.aesthetic.aesthetic')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
+    @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_images')
+    @patch('pixelbliss.run_once.storage.fs.save_meta')
+    @patch('pixelbliss.run_once.manifest.append')
+    @patch('pixelbliss.run_once.now_iso')
+    def test_post_once_async_enabled(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
+                                   mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
+                                   mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
+                                   mock_aesthetic, mock_quality, mock_floors, mock_entropy, mock_brightness,
+                                   mock_asyncio_run, mock_variants, mock_base, mock_category, mock_config):
+        """Test post_once uses async generation when enabled."""
+        # Setup config with async enabled
+        mock_cfg = Mock()
+        mock_cfg.image_generation.async_enabled = True
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 2
+        mock_cfg.upscale.enabled = False
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1", "variant2"]
+        
+        # Mock async generation result
+        mock_image = Mock()
+        mock_candidates = [
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"},
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 124, "prompt": "variant2"}
+        ]
+        mock_asyncio_run.return_value = mock_candidates
+        
+        # Mock scoring to pass all checks
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = True
+        mock_quality.return_value = (True, 0.8)
+        mock_aesthetic.return_value = 0.7
+        
+        # Mock rescoring
+        mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_collage.return_value = "/test/collage.jpg"
+        mock_hashes.return_value = []
+        mock_duplicate.return_value = False
+        mock_phash.return_value = "abc123"
+        mock_variants_wall.return_value = {"desktop": mock_image}
+        mock_alt.return_value = "alt text"
+        mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+        mock_iso.return_value = "2024-01-01T12:00:00"
+        
+        result = post_once(dry_run=True)
+        
+        assert result == 0
+        mock_asyncio_run.assert_called_once()  # Verify async path was used
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.generate_images_sequential')
+    @patch('pixelbliss.run_once.metrics.brightness')
+    @patch('pixelbliss.run_once.metrics.entropy')
+    @patch('pixelbliss.run_once.sanity.passes_floors')
+    @patch('pixelbliss.run_once.quality.evaluate_local')
+    @patch('pixelbliss.run_once.aesthetic.aesthetic')
+    @patch('pixelbliss.run_once.normalize_and_rescore')
+    @patch('pixelbliss.run_once.today_local')
+    @patch('pixelbliss.run_once.storage.paths.make_slug')
+    @patch('pixelbliss.run_once.storage.paths.output_dir')
+    @patch('pixelbliss.run_once.collage.save_collage')
+    @patch('pixelbliss.run_once.manifest.load_recent_hashes')
+    @patch('pixelbliss.run_once.phash.is_duplicate')
+    @patch('pixelbliss.run_once.phash.phash_hex')
+    @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
+    @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_images')
+    @patch('pixelbliss.run_once.storage.fs.save_meta')
+    @patch('pixelbliss.run_once.manifest.append')
+    @patch('pixelbliss.run_once.now_iso')
+    def test_post_once_async_disabled(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
+                                    mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
+                                    mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
+                                    mock_aesthetic, mock_quality, mock_floors, mock_entropy, mock_brightness,
+                                    mock_sequential, mock_variants, mock_base, mock_category, mock_config):
+        """Test post_once uses sequential generation when async disabled."""
+        # Setup config with async disabled
+        mock_cfg = Mock()
+        mock_cfg.image_generation.async_enabled = False
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 2
+        mock_cfg.upscale.enabled = False
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1", "variant2"]
+        
+        # Mock sequential generation result
+        mock_image = Mock()
+        mock_candidates = [
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"}
+        ]
+        mock_sequential.return_value = mock_candidates
+        
+        # Mock scoring to pass all checks
+        mock_brightness.return_value = 150
+        mock_entropy.return_value = 4.5
+        mock_floors.return_value = True
+        mock_quality.return_value = (True, 0.8)
+        mock_aesthetic.return_value = 0.7
+        
+        # Mock rescoring
+        mock_rescore.return_value = [{"final": 0.8, "image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1", "aesthetic": 0.7, "brightness": 150, "entropy": 4.5, "local_quality": 0.8}]
+        
+        # Mock file operations
+        mock_today.return_value = "2024-01-01"
+        mock_slug.return_value = "test_slug"
+        mock_outdir.return_value = "/test/dir"
+        mock_collage.return_value = "/test/collage.jpg"
+        mock_hashes.return_value = []
+        mock_duplicate.return_value = False
+        mock_phash.return_value = "abc123"
+        mock_variants_wall.return_value = {"desktop": mock_image}
+        mock_alt.return_value = "alt text"
+        mock_save_images.return_value = {"desktop": "/path/to/desktop.jpg"}
+        mock_iso.return_value = "2024-01-01T12:00:00"
+        
+        result = post_once(dry_run=True)
+        
+        assert result == 0
+        mock_sequential.assert_called_once()  # Verify sequential path was used

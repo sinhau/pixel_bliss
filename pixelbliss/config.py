@@ -14,6 +14,8 @@ class ImageGeneration(BaseModel):
     model_fal: List[str] = ["black-forest-labs/flux-1.1"]
     model_replicate: List[str] = ["black-forest-labs/flux"]
     retries_per_image: int = 2
+    async_enabled: bool = True
+    max_concurrency: int = None  # None means no limit, defaults to number of variants
 
 class Ranking(BaseModel):
     w_brightness: float = 0.25
