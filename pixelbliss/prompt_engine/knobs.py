@@ -173,9 +173,10 @@ class KnobSelector:
             "surface_fx": "crystal clean (no grain, crisp edges)"
         }
         
-        # Override the selected knob with a random value
+        # Override the selected knob with a random value that's different from neutral
         result = neutral_defaults.copy()
-        result[knob_to_vary] = random.choice(VARIANT_KNOBS[knob_to_vary])
+        available_values = [v for v in VARIANT_KNOBS[knob_to_vary] if v != neutral_defaults[knob_to_vary]]
+        result[knob_to_vary] = random.choice(available_values)
         
         return result
     
