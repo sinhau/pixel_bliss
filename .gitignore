@@ -10,3 +10,4 @@ outputs/
 *.pyo
 *.pyd
 *$py.class
+.coverage
