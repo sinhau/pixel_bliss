@@ -23,6 +23,13 @@ def generate_dummy_local_image(prompt: str, model: str) -> Optional[ImageResult]
     """
     Generate a dummy image by returning one of the existing images from outputs directory.
     This is useful for testing without making actual API calls.
+    
+    Args:
+        prompt: Text prompt for image generation (used for seed generation).
+        model: Model identifier (unused in dummy implementation).
+        
+    Returns:
+        Optional[ImageResult]: Dictionary containing a randomly selected existing image, or None if failed.
     """
     try:
         provider = DummyLocalProvider()

@@ -3,6 +3,12 @@ import tweepy
 from typing import List
 
 def get_client():
+    """
+    Create and return a configured Twitter/X API client.
+    
+    Returns:
+        tweepy.Client: Configured Twitter API client.
+    """
     return tweepy.Client(
         consumer_key=os.getenv("X_API_KEY"),
         consumer_secret=os.getenv("X_API_SECRET"),
@@ -11,6 +17,15 @@ def get_client():
     )
 
 def upload_media(paths: List[str]) -> List[str]:
+    """
+    Upload media files to Twitter/X and return media IDs.
+    
+    Args:
+        paths: List of file paths to upload.
+        
+    Returns:
+        List[str]: List of media ID strings from Twitter.
+    """
     auth = tweepy.OAuth1UserHandler(
         consumer_key=os.getenv("X_API_KEY"),
         consumer_secret=os.getenv("X_API_SECRET"),
@@ -25,10 +40,27 @@ def upload_media(paths: List[str]) -> List[str]:
     return media_ids
 
 def set_alt_text(media_id: str, alt: str) -> None:
+    """
+    Set alt text for uploaded media on Twitter/X.
+    
+    Args:
+        media_id: The media ID string from Twitter.
+        alt: Alt text description for accessibility.
+    """
     client = get_client()
     client.create_media_metadata(media_id, alt_text={"text": alt})
 
 def create_tweet(text: str, media_ids: List[str]) -> str:
+    """
+    Create a tweet with text and attached media.
+    
+    Args:
+        text: Tweet text content.
+        media_ids: List of media ID strings to attach.
+        
+    Returns:
+        str: The ID of the created tweet.
+    """
     client = get_client()
     response = client.create_tweet(text=text, media_ids=media_ids)
     return response.data['id']

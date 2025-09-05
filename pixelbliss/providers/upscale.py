@@ -7,7 +7,15 @@ import base64
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 def _image_to_data_uri(image: Image.Image) -> str:
-    """Convert PIL Image to base64 data URI for FAL API."""
+    """
+    Convert PIL Image to base64 data URI for FAL API.
+    
+    Args:
+        image: PIL Image object to convert.
+        
+    Returns:
+        str: Base64-encoded data URI string.
+    """
     buffer = io.BytesIO()
     # Save as PNG to preserve quality
     image.save(buffer, format='PNG')
@@ -19,8 +27,16 @@ def _image_to_data_uri(image: Image.Image) -> str:
 
 def _dummy_local_upscale(image: Image.Image, factor: int) -> Image.Image:
     """
-    Dummy upscaler using PIL's built-in resampling.
+    Dummy upscaler using PIL's built-in resampling for testing.
+    
     Uses LANCZOS resampling for better quality than nearest neighbor.
+    
+    Args:
+        image: PIL Image object to upscale.
+        factor: Upscaling factor (e.g., 2 for 2x upscaling).
+        
+    Returns:
+        Image.Image: Upscaled image using PIL resampling.
     """
     # Get current dimensions
     width, height = image.size
@@ -36,6 +52,22 @@ def _dummy_local_upscale(image: Image.Image, factor: int) -> Image.Image:
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def upscale(image: Image.Image, provider: str, model: str, factor: int) -> Image.Image:
+    """
+    Upscale an image using the specified provider and model.
+    
+    Args:
+        image: PIL Image object to upscale.
+        provider: Upscaling provider ("replicate", "fal", "dummy_local").
+        model: Model identifier for the specific provider.
+        factor: Upscaling factor (e.g., 2 for 2x upscaling).
+        
+    Returns:
+        Image.Image: Upscaled image.
+        
+    Raises:
+        ValueError: If provider is unsupported or API returns no image.
+        requests.HTTPError: If image download fails.
+    """
     if provider == "replicate":
         # Assuming model is like "real-esrgan-4x"
         output = replicate.run(
