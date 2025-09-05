@@ -17,6 +17,23 @@ def _image_to_data_uri(image: Image.Image) -> str:
     image_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
     return f"data:image/png;base64,{image_data}"
 
+def _dummy_local_upscale(image: Image.Image, factor: int) -> Image.Image:
+    """
+    Dummy upscaler using PIL's built-in resampling.
+    Uses LANCZOS resampling for better quality than nearest neighbor.
+    """
+    # Get current dimensions
+    width, height = image.size
+    
+    # Calculate new dimensions
+    new_width = width * factor
+    new_height = height * factor
+    
+    # Upscale using LANCZOS resampling (high quality)
+    upscaled = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    
+    return upscaled
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def upscale(image: Image.Image, provider: str, model: str, factor: int) -> Image.Image:
     if provider == "replicate":
@@ -64,6 +81,10 @@ def upscale(image: Image.Image, provider: str, model: str, factor: int) -> Image
         response.raise_for_status()
         upscaled = Image.open(response.raw)
         return upscaled
+    
+    elif provider == "dummy_local":
+        # Use local PIL upscaling - no API calls required
+        return _dummy_local_upscale(image, factor)
     
     else:
         raise ValueError(f"Unsupported upscale provider: {provider}")
