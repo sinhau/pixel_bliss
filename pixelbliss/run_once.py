@@ -1,4 +1,5 @@
 import datetime
+import random
 from typing import List, Dict, Any, Optional
 from . import config, prompts, providers, imaging, scoring, twitter, storage, alerts
 from .providers.base import ImageResult
@@ -25,6 +26,34 @@ def category_by_time(categories: List[str], rotation_minutes: int, now=None):
         now = datetime.datetime.now(tz)
     idx = ((now.hour * 60 + now.minute) // rotation_minutes) % len(categories)
     return categories[idx]
+
+def category_by_random(categories: List[str]):
+    """
+    Select a category randomly from the available categories.
+    
+    Args:
+        categories: List of available categories to choose from.
+        
+    Returns:
+        str: A randomly selected category.
+    """
+    return random.choice(categories)
+
+def select_category(cfg: Config):
+    """
+    Select a category based on the configured selection method.
+    
+    Args:
+        cfg: Configuration object containing selection method and categories.
+        
+    Returns:
+        str: The selected category.
+    """
+    if cfg.category_selection_method == "random":
+        return category_by_random(cfg.categories)
+    else:
+        # Default to time-based selection
+        return category_by_time(cfg.categories, cfg.rotation_minutes)
 
 def try_in_order(prompt: str, providers: List[str], models: List[str], retries: int) -> Optional[ImageResult]:
     """
@@ -141,8 +170,8 @@ def post_once(dry_run: bool = False):
     """
     cfg = config.load_config()
 
-    # A) Stateless category selection
-    category = category_by_time(cfg.categories, cfg.rotation_minutes)
+    # A) Category selection based on configured method
+    category = select_category(cfg)
 
     # B) Base prompt -> 3 prompt variants
     base_prompt = prompts.make_base(category, cfg)

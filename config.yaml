@@ -81,7 +81,11 @@ art_styles: [
 ]
 
 
+# Category selection method: "time" for time-based rotation, "random" for random selection
+category_selection_method: "random"
+
 # Minutes each category stays active before rotating to next - category index = floor(now_min / rotation_minutes) % len(categories)
+# Only used when category_selection_method is "time"
 rotation_minutes: 180
 
 prompt_generation:
