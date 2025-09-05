@@ -30,6 +30,10 @@ ranking:
   # dedupe against recent manifest pHashes
   phash_distance_min: 6
 
+aesthetic_scoring:
+  provider: "replicate"
+  model: "laion/aesthetic-predictor:v2-14"  # Example aesthetic scoring model
+
 upscale:
   enabled: true
   provider: "replicate"          # or "fal"

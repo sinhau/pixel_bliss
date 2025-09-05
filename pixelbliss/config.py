@@ -35,6 +35,10 @@ class WallpaperVariant(BaseModel):
     w: int
     h: int
 
+class AestheticScoring(BaseModel):
+    provider: str = "replicate"
+    model: str = "laion/aesthetic-predictor:v2-14"
+
 class Alerts(BaseModel):
     enabled: bool = True
     webhook_url_env: str = "ALERT_WEBHOOK_URL"
@@ -46,6 +50,7 @@ class Config(BaseModel):
     prompt_generation: PromptGeneration = Field(default_factory=PromptGeneration)
     image_generation: ImageGeneration = Field(default_factory=ImageGeneration)
     ranking: Ranking = Field(default_factory=Ranking)
+    aesthetic_scoring: AestheticScoring = Field(default_factory=AestheticScoring)
     upscale: Upscale = Field(default_factory=Upscale)
     wallpaper_variants: List[WallpaperVariant] = []
     alerts: Alerts = Field(default_factory=Alerts)

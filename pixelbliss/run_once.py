@@ -95,7 +95,13 @@ def post_once():
         e = metrics.entropy(c["image"])
         if not sanity.passes_floors(b, e, cfg):
             continue
-        a = aesthetic.aesthetic(c["image"])
+        # Pass image URL and config to aesthetic scoring
+        image_url = c.get("image_url")
+        if image_url:
+            a = aesthetic.aesthetic(image_url, cfg)
+        else:
+            # Fallback to PIL image if no URL available
+            a = aesthetic.aesthetic(c["image"], cfg)
         c["brightness"] = b
         c["entropy"] = e
         c["aesthetic"] = a
