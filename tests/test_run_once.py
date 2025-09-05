@@ -233,6 +233,7 @@ class TestPostOnce:
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
         mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         mock_category.return_value = "test_category"
@@ -290,6 +291,7 @@ class TestPostOnce:
         mock_cfg.upscale.enabled = False
         mock_cfg.aesthetic_scoring = Mock()
         mock_cfg.aesthetic_scoring.provider = "dummy_local"
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks for successful path
@@ -354,6 +356,7 @@ class TestPostOnce:
         mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.aesthetic_scoring = Mock()
         mock_cfg.aesthetic_scoring.provider = "dummy_local"
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -400,6 +403,7 @@ class TestPostOnce:
         mock_cfg.prompt_generation.num_prompt_variants = 1
         mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
         mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -461,6 +465,7 @@ class TestPostOnce:
         mock_cfg.aesthetic_scoring.provider = "dummy_local"
         mock_cfg.aesthetic_scoring.score_min = 0.0
         mock_cfg.aesthetic_scoring.score_max = 1.0
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -547,6 +552,7 @@ class TestPostOnce:
         mock_cfg.upscale.provider = "test_provider"
         mock_cfg.upscale.model = "test_model"
         mock_cfg.upscale.factor = 2
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -830,6 +836,7 @@ class TestAsyncIntegration:
         mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.upscale.enabled = False
         mock_cfg.alerts.webhook_url_env = "WEBHOOK_URL"  # Set to actual string
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -922,6 +929,7 @@ class TestAsyncIntegration:
         mock_cfg.prompt_generation.async_enabled = False  # Use sync for simplicity
         mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.upscale.enabled = False
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -1222,6 +1230,7 @@ class TestAsyncPromptGeneration:
         mock_cfg.prompt_generation.async_enabled = False  # Explicitly disable async prompt generation
         mock_cfg.prompt_generation.provider = "dummy"  # Set valid provider
         mock_cfg.upscale.enabled = False
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -1373,6 +1382,7 @@ class TestAsyncPromptGeneration:
         mock_cfg.prompt_generation.async_enabled = True  # Enable async prompt generation
         mock_cfg.prompt_generation.provider = "openai"
         mock_cfg.upscale.enabled = False
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -1465,6 +1475,7 @@ class TestAsyncPromptGeneration:
         mock_cfg.upscale.provider = "test_provider"
         mock_cfg.upscale.model = "test_model"
         mock_cfg.upscale.factor = 2
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks
@@ -1560,6 +1571,7 @@ class TestAsyncPromptGeneration:
         mock_cfg.prompt_generation.async_enabled = False
         mock_cfg.prompt_generation.provider = "dummy"
         mock_cfg.upscale.enabled = False
+        mock_cfg.discord.enabled = False  # Disable Discord for tests
         mock_config.return_value = mock_cfg
         
         # Setup mocks

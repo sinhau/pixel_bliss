@@ -424,7 +424,141 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         
         progress_logger.success(f"Generated {len(candidates)} image candidates")
 
-        # Step 5: Score and filter candidates
+        # Check for human-in-the-loop selection
+        if cfg.discord.enabled:
+            progress_logger.step("Human selection via Discord")
+            from .alerts import discord_select
+            
+            selected = await discord_select.ask_user_to_select_raw(candidates, cfg, logger)
+            if selected is None:
+                # Fallback if no response: pick first generated candidate
+                winner = candidates[0]
+                timeout_fallback = True
+                user_rank = 1
+                logger.info("No Discord selection received, using first candidate as fallback")
+            else:
+                # Your pick is authoritative
+                winner = selected
+                timeout_fallback = False
+                user_rank = candidates.index(selected) + 1
+                logger.info(f"User selected candidate #{user_rank} via Discord")
+            
+            progress_logger.success(f"Winner selected via human choice (rank #{user_rank})")
+            
+            # Skip all scoring/collage/duplicate checks - proceed directly to upscaling
+            # Set up output directory for saving files
+            date_str = today_local()
+            slug = storage.paths.make_slug(category, base_prompt)
+            out_dir = storage.paths.output_dir(date_str, slug)
+            logger.debug(f"Output directory: {out_dir}")
+            
+            # Jump to Step 7: Upscale winner
+            base_img = winner["image"]
+            if cfg.upscale.enabled:
+                logger.info(f"Upscaling with {cfg.upscale.provider}/{cfg.upscale.model} (factor: {cfg.upscale.factor}x)")
+                from .providers import upscale
+                upscaled_img = upscale.upscale(base_img, cfg.upscale.provider, cfg.upscale.model, cfg.upscale.factor)
+                if upscaled_img is not None:
+                    base_img = upscaled_img
+                    progress_logger.success("Image upscaled successfully")
+                else:
+                    logger.warning("Upscaling failed, using original image")
+                    progress_logger.warning("Upscaling failed, using original")
+            else:
+                logger.info("Upscaling disabled, using original image")
+                progress_logger.substep("Upscaling disabled")
+
+            # Step 8: Create wallpaper variants
+            progress_logger.step("Creating wallpaper variants")
+            from .imaging import variants
+            wallpapers = variants.make_wallpaper_variants(base_img, cfg.wallpaper_variants)
+            logger.info(f"Created {len(wallpapers)} wallpaper variants: {list(wallpapers.keys())}")
+            progress_logger.success(f"Created {len(wallpapers)} wallpaper variants")
+
+            # Step 9: Generate alt text and save files
+            progress_logger.step("Saving files and metadata")
+            alt = prompts.make_alt_text(base_prompt, winner["prompt"], cfg)
+            logger.debug(f"Alt text generated: {alt[:100]}...")
+            
+            public_paths = storage.fs.save_images(out_dir, wallpapers)
+            logger.info(f"Images saved to: {out_dir}")
+            
+            ph = phash.phash_hex(wallpapers[next(iter(wallpapers))])
+            
+            meta = {
+                "category": category,
+                "base_prompt": base_prompt,
+                "variant_prompt": winner["prompt"],
+                "provider": winner["provider"],
+                "model": winner["model"],
+                "seed": winner.get("seed"),
+                "created_at": now_iso(),
+                "alt_text": alt,
+                "phash": ph,
+                "human_selection": {
+                    "enabled": True,
+                    "method": "discord_dm_raw_batches",
+                    "selected_rank_raw": user_rank,
+                    "timeout_fallback": timeout_fallback
+                },
+                "files": public_paths,
+                "tweet_id": None
+            }
+            storage.fs.save_meta(out_dir, meta)
+            
+            manifest.append({
+                "id": f"{date_str}_{category}_{slug}",
+                "date": date_str,
+                "category": category,
+                "files": public_paths,
+                "tweet_id": None,
+                "phash": ph
+            })
+            
+            logger.info("Metadata saved and manifest updated")
+            progress_logger.success("Files and metadata saved")
+
+            if dry_run:
+                logger.info("Dry run mode - skipping social media posting")
+                progress_logger.finish_pipeline(success=True)
+                return 0
+
+            # Step 10: Post to social media
+            progress_logger.step("Posting to social media")
+            first_key = "phone_9x16_2k" if "phone_9x16_2k" in public_paths else next(iter(public_paths))
+            logger.info(f"Posting image variant: {first_key}")
+            
+            try:
+                media_ids = twitter.client.upload_media([fs_abs(public_paths[first_key])])
+                logger.debug(f"Media uploaded, ID: {media_ids[0]}")
+                
+                twitter.client.set_alt_text(media_ids[0], alt)
+                logger.debug("Alt text set for media")
+                
+                tweet_id = twitter.client.create_tweet(text="", media_ids=media_ids)
+                logger.info(f"Tweet posted successfully, ID: {tweet_id}")
+                
+                # Update records with tweet ID
+                manifest.update_tweet_id(f"{date_str}_{category}_{slug}", tweet_id)
+                meta["tweet_id"] = tweet_id
+                storage.fs.save_meta(out_dir, meta)
+                
+                tweet_link = tweet_url(tweet_id)
+                alerts.webhook.send_success(category, meta["model"], tweet_link, public_paths[first_key], cfg)
+                
+                progress_logger.success("Posted to social media", f"Tweet ID: {tweet_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to post to social media: {e}")
+                progress_logger.error("Social media posting failed", str(e))
+                progress_logger.finish_pipeline(success=False)
+                return 1
+
+            progress_logger.finish_pipeline(success=True)
+            logger.info("Pipeline completed successfully with human selection")
+            return 0
+
+        # Step 5: Score and filter candidates (original path when HITL disabled)
         progress_logger.step("Scoring and filtering candidates")
         scored = []
         filtered_sanity = 0

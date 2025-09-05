@@ -59,6 +59,13 @@ class Alerts(BaseModel):
     enabled: bool = True
     webhook_url_env: str = "ALERT_WEBHOOK_URL"
 
+class Discord(BaseModel):
+    enabled: bool = False
+    bot_token_env: str = "DISCORD_BOT_TOKEN"
+    user_id_env: str = "DISCORD_USER_ID"
+    timeout_sec: int = 900
+    batch_size: int = 10
+
 class Config(BaseModel):
     timezone: str = "America/Los_Angeles"
     categories: List[str] = ["sci-fi", "tech", "mystic", "geometry", "nature", "neo-noir", "watercolor", "cosmic-minimal"]
@@ -73,6 +80,7 @@ class Config(BaseModel):
     upscale: Upscale = Field(default_factory=Upscale)
     wallpaper_variants: List[WallpaperVariant] = []
     alerts: Alerts = Field(default_factory=Alerts)
+    discord: Discord = Field(default_factory=Discord)
 
 def load_config(config_path: str = "config.yaml") -> Config:
     """
@@ -98,5 +106,12 @@ def load_config(config_path: str = "config.yaml") -> Config:
     if 'alerts' in data and 'webhook_url_env' in data['alerts']:
         env_var = data['alerts']['webhook_url_env']
         data['alerts']['webhook_url'] = os.getenv(env_var, "")
+
+    # Load Discord environment variables
+    if 'discord' in data:
+        bot_token_env = data['discord'].get('bot_token_env', 'DISCORD_BOT_TOKEN')
+        user_id_env = data['discord'].get('user_id_env', 'DISCORD_USER_ID')
+        data['discord']['bot_token'] = os.getenv(bot_token_env, "")
+        data['discord']['user_id'] = os.getenv(user_id_env, "")
 
     return Config(**data)

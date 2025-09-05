@@ -12,6 +12,7 @@ PyYAML
 fal_client
 opencv-python
 colorama
+discord.py
 pytest
 pytest-mock
 pytest-cov
