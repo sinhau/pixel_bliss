@@ -1,10 +1,12 @@
 .DS_Store
 .env.example
 .vscode/
-pixelbliss/__pycache__/
+__pycache__/
 .env
-pixelbliss/**/__pycache__/
 .clinerules/
 manifest/
 outputs/
 *.pyc
+*.pyo
+*.pyd
+*$py.class
