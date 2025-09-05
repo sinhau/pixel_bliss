@@ -11,18 +11,32 @@ config = load_config()
 @retry(stop=stop_after_attempt(config.image_generation.retries_per_image), wait=wait_exponential(multiplier=1, min=4, max=10))
 def _generate_fal_image_with_retry(prompt: str, model: str) -> ImageResult:
     # Use fal_client.run for synchronous image generation
+    # Based on FAL API docs for Imagen 4 Ultra
     result = fal_client.run(
         model,
-        arguments={"prompt": prompt}
+        arguments={
+            "prompt": prompt,
+            "aspect_ratio": "1:1",        # Default aspect ratio
+            "num_images": 1,              # Generate 1 image
+            "resolution": "1K",           # Default resolution
+            "negative_prompt": ""         # Empty negative prompt by default
+        }
     )
 
-    # Extract image URL from response
-    image_url = result["images"][0]["url"]
+    # Extract image URL from response - FAL returns images array with File objects
+    if "images" in result and len(result["images"]) > 0:
+        image_url = result["images"][0]["url"]
+    else:
+        raise ValueError("No images returned from FAL API")
+    
+    # Extract seed - according to docs, seed is at top level of response
     seed = result.get("seed", 12345678)
 
-    # Download image
+    # Download image with proper error handling
     import requests
-    image = Image.open(requests.get(image_url, stream=True).raw)
+    response = requests.get(image_url, stream=True)
+    response.raise_for_status()
+    image = Image.open(response.raw)
 
     return {
         "image": image,
