@@ -6,6 +6,7 @@ from io import BytesIO
 from PIL import Image
 import discord
 from discord.ext import commands
+from pixelbliss.imaging.numbering import add_candidate_numbers_to_images
 
 
 async def ask_user_to_select_raw(candidates: List[Dict], cfg, logger: logging.Logger) -> Optional[Dict]:
@@ -43,6 +44,9 @@ async def ask_user_to_select_raw(candidates: List[Dict], cfg, logger: logging.Lo
     
     logger.info(f"Starting Discord human-in-the-loop selection for {len(candidates)} candidates")
     
+    # Add candidate numbers to images for easier selection
+    numbered_candidates = add_candidate_numbers_to_images(candidates)
+    
     # Create Discord client
     intents = discord.Intents.none()
     client = discord.Client(intents=intents)
@@ -65,7 +69,7 @@ async def ask_user_to_select_raw(candidates: List[Dict], cfg, logger: logging.Lo
             # Send candidates in batches
             for batch_start in range(0, len(candidates), batch_size):
                 batch_end = min(batch_start + batch_size, len(candidates))
-                batch = candidates[batch_start:batch_end]
+                batch = numbered_candidates[batch_start:batch_end]
                 
                 logger.debug(f"Sending batch {batch_start//batch_size + 1}: candidates {batch_start+1}-{batch_end}")
                 

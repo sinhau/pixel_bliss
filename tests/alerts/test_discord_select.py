@@ -182,14 +182,8 @@ class TestDiscordSelect:
     @pytest.mark.asyncio
     async def test_ask_user_to_select_raw_image_downscaling(self):
         """Test ask_user_to_select_raw with large images that need downscaling."""
-        # Use a mock image that reports large size but doesn't actually process large data
-        mock_image = Mock()
-        mock_image.size = (3000, 3000)  # Reports large size
-        mock_image.copy.return_value = mock_image
-        mock_image.thumbnail = Mock()  # Mock the thumbnail operation
-        mock_image.save = Mock()  # Mock the save operation
-        
-        candidates = [{"image": mock_image, "provider": "fal", "model": "test"}]
+        # Use pre-created small test image to avoid mocking complexity
+        candidates = [{"image": self.small_test_image, "provider": "fal", "model": "test"}]
         
         cfg = Mock()
         cfg.discord.bot_token_env = "DISCORD_BOT_TOKEN"
@@ -513,3 +507,55 @@ class TestDiscordSelect:
                 # Since we're using regular Mock instead of AsyncMock, the execution path is different
                 # The function will complete without reaching the client task timeout logic
                 logger.info.assert_called_with("Discord human selection timed out or failed")
+
+    @pytest.mark.asyncio
+    async def test_ask_user_to_select_raw_with_numbering_integration(self):
+        """Test that ask_user_to_select_raw integrates with the numbering functionality."""
+        # Use pre-created small test image
+        candidates = [{"image": self.small_test_image, "provider": "fal", "model": "test"}]
+        
+        cfg = Mock()
+        cfg.discord.bot_token_env = "DISCORD_BOT_TOKEN"
+        cfg.discord.user_id_env = "DISCORD_USER_ID"
+        cfg.discord.timeout_sec = 0.01  # Very short timeout
+        cfg.discord.batch_size = 10
+        logger = Mock()
+        
+        with patch('pixelbliss.alerts.discord_select.os.getenv') as mock_getenv:
+            # Mock environment variables - valid values
+            mock_getenv.side_effect = lambda key, default: "test_token" if key == "DISCORD_BOT_TOKEN" else "123456789"
+            
+            # Mock the numbering function to verify it's called
+            with patch('pixelbliss.alerts.discord_select.add_candidate_numbers_to_images') as mock_numbering:
+                mock_numbering.return_value = candidates  # Return the same candidates for simplicity
+                
+                # Mock the entire modules to avoid any async object creation
+                with patch('pixelbliss.alerts.discord_select.discord') as mock_discord_module, \
+                     patch('pixelbliss.alerts.discord_select.asyncio') as mock_asyncio_module:
+                    
+                    # Create a completely non-async mock event
+                    mock_event = Mock()
+                    mock_event.wait = Mock(return_value=None)
+                    mock_event.set = Mock(return_value=None)
+                    
+                    # Mock the asyncio module methods
+                    mock_asyncio_module.Event.return_value = mock_event
+                    mock_asyncio_module.create_task = Mock()
+                    mock_asyncio_module.wait_for = Mock(side_effect=Exception("Test exception to exit early"))
+                    
+                    # Mock discord client with necessary attributes
+                    mock_client = Mock()
+                    mock_client.start = Mock(side_effect=Exception("Test exception to exit early"))
+                    mock_client.is_closed = Mock(return_value=False)
+                    mock_client.close = Mock()
+                    mock_client.event = Mock()  # Add the event decorator
+                    mock_discord_module.Client.return_value = mock_client
+                    mock_discord_module.File = Mock()
+                    
+                    result = await ask_user_to_select_raw(candidates, cfg, logger)
+                    
+                    # Verify that the numbering function was called with the candidates
+                    mock_numbering.assert_called_once_with(candidates)
+                    
+                    assert result is None
+                    logger.info.assert_any_call("Starting Discord human-in-the-loop selection for 1 candidates")
