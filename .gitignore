@@ -2,3 +2,5 @@
 .env.example
 .vscode/
 pixelbliss/__pycache__/
+.env
+pixelbliss/**/__pycache__/
