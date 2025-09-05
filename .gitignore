@@ -4,3 +4,4 @@
 pixelbliss/__pycache__/
 .env
 pixelbliss/**/__pycache__/
+.clinerules/
