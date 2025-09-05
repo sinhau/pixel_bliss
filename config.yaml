@@ -162,3 +162,11 @@ discord:
   user_id_env: "DISCORD_USER_ID"        # Environment variable name containing your Discord user ID
   timeout_sec: 1800           # How long to wait for your selection (30 minutes)
   batch_size: 10             # Number of images per batch message (Discord limit is 10 attachments)
+
+twitter_compression:
+  enabled: true             # Whether to enable automatic compression for Twitter uploads
+  max_size_mb: 5.0          # Maximum file size in MB (Twitter's limit is 5MB)
+  quality_levels: [95, 90, 85, 80, 75, 70, 65, 60, 55, 50]  # JPEG quality levels to try progressively
+  min_quality: 50           # Minimum JPEG quality to use as fallback
+  max_dimension: 4096       # Maximum image dimension before resizing
+  preserve_png: true        # Try to keep PNG format if possible (lossless)

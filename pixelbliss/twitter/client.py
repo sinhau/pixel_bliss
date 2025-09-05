@@ -1,6 +1,7 @@
 import os
 import tweepy
 from typing import List
+from ..imaging.compression import prepare_for_twitter_upload
 
 def get_client():
     """
@@ -19,6 +20,7 @@ def get_client():
 def upload_media(paths: List[str]) -> List[str]:
     """
     Upload media files to Twitter/X and return media IDs.
+    Automatically compresses images to stay under 5MB limit while maintaining quality.
     
     Args:
         paths: List of file paths to upload.
@@ -26,6 +28,9 @@ def upload_media(paths: List[str]) -> List[str]:
     Returns:
         List[str]: List of media ID strings from Twitter.
     """
+    # Compress images if needed to stay under Twitter's 5MB limit
+    processed_paths = prepare_for_twitter_upload(paths)
+    
     auth = tweepy.OAuth1UserHandler(
         consumer_key=os.getenv("X_API_KEY"),
         consumer_secret=os.getenv("X_API_SECRET"),
@@ -34,7 +39,7 @@ def upload_media(paths: List[str]) -> List[str]:
     )
     api = tweepy.API(auth)
     media_ids = []
-    for path in paths:
+    for path in processed_paths:
         media = api.media_upload(path)
         media_ids.append(media.media_id_string)
     return media_ids
