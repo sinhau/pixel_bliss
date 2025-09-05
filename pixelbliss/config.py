@@ -19,6 +19,7 @@ class Ranking(BaseModel):
     w_brightness: float = 0.25
     w_entropy: float = 0.25
     w_aesthetic: float = 0.50
+    w_local_quality: float = 0.20
     entropy_min: float = 3.5
     brightness_min: float = 10
     brightness_max: float = 245
@@ -41,6 +42,15 @@ class AestheticScoring(BaseModel):
     score_min: float = 0.0
     score_max: float = 1.0
 
+class LocalQuality(BaseModel):
+    resize_long: int = 768
+    min_side: int = 512
+    ar_min: float = 0.5
+    ar_max: float = 2.0
+    sharpness_min: float = 120.0
+    sharpness_good: float = 600.0
+    clip_max: float = 0.20
+
 class Alerts(BaseModel):
     enabled: bool = True
     webhook_url_env: str = "ALERT_WEBHOOK_URL"
@@ -55,6 +65,7 @@ class Config(BaseModel):
     image_generation: ImageGeneration = Field(default_factory=ImageGeneration)
     ranking: Ranking = Field(default_factory=Ranking)
     aesthetic_scoring: AestheticScoring = Field(default_factory=AestheticScoring)
+    local_quality: LocalQuality = Field(default_factory=LocalQuality)
     upscale: Upscale = Field(default_factory=Upscale)
     wallpaper_variants: List[WallpaperVariant] = []
     alerts: Alerts = Field(default_factory=Alerts)

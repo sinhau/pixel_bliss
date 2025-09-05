@@ -101,10 +101,11 @@ image_generation:
   retries_per_image: 2      # Number of retry attempts per image generation request before giving up
 
 ranking:
-  # Image scoring weights for final ranking: final_score = w_brightness * brightness_norm + w_entropy * entropy_norm + w_aesthetic * aesthetic_score
+  # Image scoring weights for final ranking: final_score = w_brightness * brightness_norm + w_entropy * entropy_norm + w_aesthetic * aesthetic_score + w_local_quality * local_quality_score
   w_brightness: 0.25        # Weight for normalized brightness score (0-1)
   w_entropy: 0.25           # Weight for normalized entropy/complexity score (0-1) 
   w_aesthetic: 0.50         # Weight for aesthetic quality score (0-1)
+  w_local_quality: 0.20     # Weight for local quality score (0-1) - sharpness and exposure
 
   # Quality thresholds - images failing these are discarded before ranking
   entropy_min: 3.5          # Minimum entropy (visual complexity) - filters out overly simple/flat images
@@ -119,6 +120,15 @@ aesthetic_scoring:
   model: "methexis-inc/img2aestheticscore:ec5029694b29e51fa9e5b794d73ba8103569d5d3ef3d60b7a8fdef18b9997b90"  # Aesthetic scoring model endpoint
   score_min: 1.0            # Minimum expected aesthetic score from the model (for normalization)
   score_max: 10.0           # Maximum expected aesthetic score from the model (for normalization)
+
+local_quality:
+  resize_long: 768          # Resize images to this long side for quality assessment (faster processing)
+  min_side: 512             # Minimum dimension for either width or height (hard floor)
+  ar_min: 0.5               # Minimum aspect ratio (width/height) - reject ultra-tall images
+  ar_max: 2.0               # Maximum aspect ratio (width/height) - reject ultra-wide images
+  sharpness_min: 120.0      # Minimum Variance of Laplacian for sharpness (hard floor)
+  sharpness_good: 600.0     # VoL value considered "good" sharpness (score = 1.0)
+  clip_max: 0.20            # Maximum allowed clipping fraction (shadows + highlights, hard floor)
 
 upscale:
   enabled: true             # Whether to upscale winning images before creating wallpaper variants

@@ -3,7 +3,7 @@ import random
 from typing import List, Dict, Any, Optional
 from . import config, prompts, providers, imaging, scoring, twitter, storage, alerts
 from .providers.base import ImageResult
-from .imaging import metrics, sanity, phash, collage
+from .imaging import metrics, sanity, phash, collage, quality
 from .scoring import aesthetic
 from .storage import manifest
 from .config import Config
@@ -79,7 +79,7 @@ def normalize_and_rescore(items: List[Dict], cfg: Config) -> List[Dict]:
     Normalize brightness and entropy scores and calculate final ranking scores.
     
     Args:
-        items: List of image candidates with brightness, entropy, and aesthetic scores.
+        items: List of image candidates with brightness, entropy, aesthetic, and local quality scores.
         cfg: Configuration object containing ranking weights.
         
     Returns:
@@ -97,10 +97,13 @@ def normalize_and_rescore(items: List[Dict], cfg: Config) -> List[Dict]:
     for i in items:
         b_norm = (i['brightness'] - b_min) / (b_max - b_min) if b_max > b_min else 0.5
         e_norm = (i['entropy'] - e_min) / (e_max - e_min) if e_max > e_min else 0.5
+        # Handle backward compatibility - local_quality might not be present in older tests
+        local_q = i.get('local_quality', 0.5)  # Default to 0.5 if not present
         i['final'] = (
             cfg.ranking.w_brightness * b_norm +
             cfg.ranking.w_entropy * e_norm +
-            cfg.ranking.w_aesthetic * i['aesthetic']
+            cfg.ranking.w_aesthetic * i['aesthetic'] +
+            cfg.ranking.w_local_quality * local_q
         )
     return items
 
@@ -206,6 +209,12 @@ def post_once(dry_run: bool = False):
         e = metrics.entropy(c["image"])
         if not sanity.passes_floors(b, e, cfg):
             continue
+        
+        # Local quality assessment (includes hard floors)
+        passes_local, local_q = quality.evaluate_local(c["image"], cfg)
+        if not passes_local:
+            continue
+        
         # Pass image URL and config to aesthetic scoring
         image_url = c.get("image_url")
         if image_url:
@@ -216,6 +225,7 @@ def post_once(dry_run: bool = False):
         c["brightness"] = b
         c["entropy"] = e
         c["aesthetic"] = a
+        c["local_quality"] = local_q
         scored.append(c)
 
     if not scored:
@@ -274,6 +284,7 @@ def post_once(dry_run: bool = False):
             "aesthetic": round(winner["aesthetic"], 4),
             "brightness": round(winner["brightness"], 2),
             "entropy": round(winner["entropy"], 3),
+            "local_quality": round(winner["local_quality"], 4),
             "final": round(winner["final"], 4)
         },
         "files": public_paths,

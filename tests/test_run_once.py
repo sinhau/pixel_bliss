@@ -102,10 +102,12 @@ class TestNormalizeAndRescore:
         assert len(result) == 1
         assert "final" in result[0]
         # With single item, normalized brightness and entropy should be 0.5
+        # local_quality defaults to 0.5 when not present
         expected_final = (
             sample_config.ranking.w_brightness * 0.5 +
             sample_config.ranking.w_entropy * 0.5 +
-            sample_config.ranking.w_aesthetic * 0.8
+            sample_config.ranking.w_aesthetic * 0.8 +
+            sample_config.ranking.w_local_quality * 0.5
         )
         assert abs(result[0]["final"] - expected_final) < 0.001
 
@@ -122,10 +124,12 @@ class TestNormalizeAndRescore:
         # When min == max, normalized values should be 0.5
         for item in result:
             assert "final" in item
+            # local_quality defaults to 0.5 when not present
             expected_final = (
                 sample_config.ranking.w_brightness * 0.5 +
                 sample_config.ranking.w_entropy * 0.5 +
-                sample_config.ranking.w_aesthetic * item["aesthetic"]
+                sample_config.ranking.w_aesthetic * item["aesthetic"] +
+                sample_config.ranking.w_local_quality * 0.5
             )
             assert abs(item["final"] - expected_final) < 0.001
 

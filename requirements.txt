@@ -10,6 +10,7 @@ replicate
 pytz
 PyYAML
 fal_client
+opencv-python
 pytest
 pytest-mock
 pytest-cov
