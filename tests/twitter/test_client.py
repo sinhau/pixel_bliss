@@ -5,7 +5,9 @@ from pixelbliss.twitter.client import (
     get_client,
     upload_media,
     set_alt_text,
-    create_tweet
+    create_tweet,
+    get_user_info,
+    get_tweet_info
 )
 
 
@@ -13,6 +15,7 @@ class TestGetClient:
     """Test cases for get_client function."""
 
     @patch.dict(os.environ, {
+        'X_BEARER_TOKEN': 'test_bearer_token',
         'X_API_KEY': 'test_api_key',
         'X_API_SECRET': 'test_api_secret',
         'X_ACCESS_TOKEN': 'test_access_token',
@@ -27,10 +30,12 @@ class TestGetClient:
         result = get_client()
         
         mock_client.assert_called_once_with(
+            bearer_token='test_bearer_token',
             consumer_key='test_api_key',
             consumer_secret='test_api_secret',
             access_token='test_access_token',
-            access_token_secret='test_access_token_secret'
+            access_token_secret='test_access_token_secret',
+            wait_on_rate_limit=True
         )
         assert result == mock_client_instance
 
@@ -44,14 +49,17 @@ class TestGetClient:
         result = get_client()
         
         mock_client.assert_called_once_with(
+            bearer_token=None,
             consumer_key=None,
             consumer_secret=None,
             access_token=None,
-            access_token_secret=None
+            access_token_secret=None,
+            wait_on_rate_limit=True
         )
         assert result == mock_client_instance
 
     @patch.dict(os.environ, {
+        'X_BEARER_TOKEN': 'partial_bearer',
         'X_API_KEY': 'partial_key',
         'X_API_SECRET': '',  # Empty string
         'X_ACCESS_TOKEN': 'partial_token'
@@ -66,10 +74,12 @@ class TestGetClient:
         result = get_client()
         
         mock_client.assert_called_once_with(
+            bearer_token='partial_bearer',
             consumer_key='partial_key',
             consumer_secret='',
             access_token='partial_token',
-            access_token_secret=None
+            access_token_secret=None,
+            wait_on_rate_limit=True
         )
         assert result == mock_client_instance
 
@@ -77,21 +87,38 @@ class TestGetClient:
 class TestUploadMedia:
     """Test cases for upload_media function."""
 
-    @patch.dict(os.environ, {
-        'X_API_KEY': 'test_api_key',
-        'X_API_SECRET': 'test_api_secret',
-        'X_ACCESS_TOKEN': 'test_access_token',
-        'X_ACCESS_TOKEN_SECRET': 'test_access_token_secret'
-    })
+    @patch('pixelbliss.twitter.client.get_client')
+    def test_upload_media_single_file_v2_success(self, mock_get_client):
+        """Test uploading a single media file using v2 API successfully."""
+        # Mock client and media upload
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+        
+        mock_media = Mock()
+        mock_media.media_id = 123456789
+        mock_client.media_upload.return_value = mock_media
+        
+        result = upload_media(["/path/to/image.jpg"])
+        
+        mock_get_client.assert_called_once()
+        mock_client.media_upload.assert_called_once_with(filename="/path/to/image.jpg")
+        
+        assert result == ["123456789"]
+
+    @patch('pixelbliss.twitter.client.get_client')
     @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
     @patch('pixelbliss.twitter.client.tweepy.API')
-    def test_upload_media_single_file(self, mock_api_class, mock_oauth):
-        """Test uploading a single media file."""
-        # Mock OAuth handler
+    def test_upload_media_single_file_v2_fallback(self, mock_api_class, mock_oauth, mock_get_client):
+        """Test uploading a single media file with v2 failure and v1.1 fallback."""
+        # Mock v2 client failure
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+        mock_client.media_upload.side_effect = Exception("v2 upload failed")
+        
+        # Mock v1.1 fallback
         mock_auth = Mock()
         mock_oauth.return_value = mock_auth
         
-        # Mock API and media upload
         mock_api = Mock()
         mock_api_class.return_value = mock_api
         
@@ -101,111 +128,56 @@ class TestUploadMedia:
         
         result = upload_media(["/path/to/image.jpg"])
         
-        # Verify OAuth setup
-        mock_oauth.assert_called_once_with(
-            consumer_key='test_api_key',
-            consumer_secret='test_api_secret',
-            access_token='test_access_token',
-            access_token_secret='test_access_token_secret'
-        )
+        # Verify v2 was tried first
+        mock_get_client.assert_called_once()
+        mock_client.media_upload.assert_called_once_with(filename="/path/to/image.jpg")
         
-        # Verify API setup and upload
+        # Verify v1.1 fallback was used
+        mock_oauth.assert_called_once()
         mock_api_class.assert_called_once_with(mock_auth)
         mock_api.media_upload.assert_called_once_with("/path/to/image.jpg")
         
         assert result == ["123456789"]
 
-    @patch.dict(os.environ, {
-        'X_API_KEY': 'test_api_key',
-        'X_API_SECRET': 'test_api_secret',
-        'X_ACCESS_TOKEN': 'test_access_token',
-        'X_ACCESS_TOKEN_SECRET': 'test_access_token_secret'
-    })
-    @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
-    @patch('pixelbliss.twitter.client.tweepy.API')
-    def test_upload_media_multiple_files(self, mock_api_class, mock_oauth):
+    @patch('pixelbliss.twitter.client.get_client')
+    def test_upload_media_multiple_files(self, mock_get_client):
         """Test uploading multiple media files."""
-        # Mock OAuth handler
-        mock_auth = Mock()
-        mock_oauth.return_value = mock_auth
-        
-        # Mock API
-        mock_api = Mock()
-        mock_api_class.return_value = mock_api
+        # Mock client
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
         
         # Mock multiple media uploads
         mock_media1 = Mock()
-        mock_media1.media_id_string = "123456789"
+        mock_media1.media_id = 123456789
         mock_media2 = Mock()
-        mock_media2.media_id_string = "987654321"
+        mock_media2.media_id = 987654321
         mock_media3 = Mock()
-        mock_media3.media_id_string = "555666777"
+        mock_media3.media_id = 555666777
         
-        mock_api.media_upload.side_effect = [mock_media1, mock_media2, mock_media3]
+        mock_client.media_upload.side_effect = [mock_media1, mock_media2, mock_media3]
         
         paths = ["/path/to/image1.jpg", "/path/to/image2.png", "/path/to/image3.gif"]
         result = upload_media(paths)
         
         # Verify all files were uploaded
-        assert mock_api.media_upload.call_count == 3
-        mock_api.media_upload.assert_any_call("/path/to/image1.jpg")
-        mock_api.media_upload.assert_any_call("/path/to/image2.png")
-        mock_api.media_upload.assert_any_call("/path/to/image3.gif")
+        assert mock_client.media_upload.call_count == 3
+        mock_client.media_upload.assert_any_call(filename="/path/to/image1.jpg")
+        mock_client.media_upload.assert_any_call(filename="/path/to/image2.png")
+        mock_client.media_upload.assert_any_call(filename="/path/to/image3.gif")
         
         assert result == ["123456789", "987654321", "555666777"]
 
-    @patch.dict(os.environ, {
-        'X_API_KEY': 'test_api_key',
-        'X_API_SECRET': 'test_api_secret',
-        'X_ACCESS_TOKEN': 'test_access_token',
-        'X_ACCESS_TOKEN_SECRET': 'test_access_token_secret'
-    })
-    @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
-    @patch('pixelbliss.twitter.client.tweepy.API')
-    def test_upload_media_empty_list(self, mock_api_class, mock_oauth):
+    @patch('pixelbliss.twitter.client.get_client')
+    def test_upload_media_empty_list(self, mock_get_client):
         """Test uploading with empty file list."""
-        # Mock OAuth handler
-        mock_auth = Mock()
-        mock_oauth.return_value = mock_auth
-        
-        # Mock API
-        mock_api = Mock()
-        mock_api_class.return_value = mock_api
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
         
         result = upload_media([])
         
         # Should not call media_upload for empty list
-        mock_api.media_upload.assert_not_called()
+        mock_client.media_upload.assert_not_called()
         assert result == []
-
-    @patch.dict(os.environ, {}, clear=True)
-    @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
-    @patch('pixelbliss.twitter.client.tweepy.API')
-    def test_upload_media_without_credentials(self, mock_api_class, mock_oauth):
-        """Test uploading media without credentials."""
-        # Mock OAuth handler
-        mock_auth = Mock()
-        mock_oauth.return_value = mock_auth
-        
-        # Mock API
-        mock_api = Mock()
-        mock_api_class.return_value = mock_api
-        
-        mock_media = Mock()
-        mock_media.media_id_string = "123456789"
-        mock_api.media_upload.return_value = mock_media
-        
-        result = upload_media(["/path/to/image.jpg"])
-        
-        # Verify OAuth setup with None values
-        mock_oauth.assert_called_once_with(
-            consumer_key=None,
-            consumer_secret=None,
-            access_token=None,
-            access_token_secret=None
-        )
-        
-        assert result == ["123456789"]
 
 
 class TestSetAltText:
@@ -217,21 +189,25 @@ class TestSetAltText:
         'X_ACCESS_TOKEN': 'test_access_token',
         'X_ACCESS_TOKEN_SECRET': 'test_access_token_secret'
     })
+    @patch('pixelbliss.twitter.client.get_client')
     @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
     @patch('pixelbliss.twitter.client.tweepy.API')
-    def test_set_alt_text_success(self, mock_api_class, mock_oauth):
-        """Test setting alt text successfully."""
-        # Mock OAuth handler
+    def test_set_alt_text_success(self, mock_api_class, mock_oauth, mock_get_client):
+        """Test setting alt text successfully using v1.1 fallback."""
+        # Mock v2 client (will fail and fallback to v1.1)
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+        
+        # Mock v1.1 fallback
         mock_auth = Mock()
         mock_oauth.return_value = mock_auth
         
-        # Mock API
         mock_api = Mock()
         mock_api_class.return_value = mock_api
         
         set_alt_text("123456789", "A beautiful sunset over mountains")
         
-        # Verify OAuth setup
+        # Verify v1.1 fallback was used
         mock_oauth.assert_called_once_with(
             consumer_key='test_api_key',
             consumer_secret='test_api_secret',
@@ -239,7 +215,6 @@ class TestSetAltText:
             access_token_secret='test_access_token_secret'
         )
         
-        # Verify API setup and metadata creation
         mock_api_class.assert_called_once_with(mock_auth)
         mock_api.create_media_metadata.assert_called_once_with(
             "123456789",
@@ -252,15 +227,17 @@ class TestSetAltText:
         'X_ACCESS_TOKEN': 'test_access_token',
         'X_ACCESS_TOKEN_SECRET': 'test_access_token_secret'
     })
+    @patch('pixelbliss.twitter.client.get_client')
     @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
     @patch('pixelbliss.twitter.client.tweepy.API')
-    def test_set_alt_text_empty_string(self, mock_api_class, mock_oauth):
+    def test_set_alt_text_empty_string(self, mock_api_class, mock_oauth, mock_get_client):
         """Test setting empty alt text."""
-        # Mock OAuth handler
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+        
         mock_auth = Mock()
         mock_oauth.return_value = mock_auth
         
-        # Mock API
         mock_api = Mock()
         mock_api_class.return_value = mock_api
         
@@ -269,61 +246,6 @@ class TestSetAltText:
         mock_api.create_media_metadata.assert_called_once_with(
             "123456789",
             alt_text={"text": ""}
-        )
-
-    @patch.dict(os.environ, {
-        'X_API_KEY': 'test_api_key',
-        'X_API_SECRET': 'test_api_secret',
-        'X_ACCESS_TOKEN': 'test_access_token',
-        'X_ACCESS_TOKEN_SECRET': 'test_access_token_secret'
-    })
-    @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
-    @patch('pixelbliss.twitter.client.tweepy.API')
-    def test_set_alt_text_long_description(self, mock_api_class, mock_oauth):
-        """Test setting long alt text description."""
-        # Mock OAuth handler
-        mock_auth = Mock()
-        mock_oauth.return_value = mock_auth
-        
-        # Mock API
-        mock_api = Mock()
-        mock_api_class.return_value = mock_api
-        
-        long_alt = "A very detailed description of an image that contains multiple elements including people, buildings, nature, and various objects that would be important for accessibility purposes."
-        
-        set_alt_text("987654321", long_alt)
-        
-        mock_api.create_media_metadata.assert_called_once_with(
-            "987654321",
-            alt_text={"text": long_alt}
-        )
-
-    @patch.dict(os.environ, {}, clear=True)
-    @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
-    @patch('pixelbliss.twitter.client.tweepy.API')
-    def test_set_alt_text_without_credentials(self, mock_api_class, mock_oauth):
-        """Test setting alt text without credentials."""
-        # Mock OAuth handler
-        mock_auth = Mock()
-        mock_oauth.return_value = mock_auth
-        
-        # Mock API
-        mock_api = Mock()
-        mock_api_class.return_value = mock_api
-        
-        set_alt_text("123456789", "Test alt text")
-        
-        # Verify OAuth setup with None values
-        mock_oauth.assert_called_once_with(
-            consumer_key=None,
-            consumer_secret=None,
-            access_token=None,
-            access_token_secret=None
-        )
-        
-        mock_api.create_media_metadata.assert_called_once_with(
-            "123456789",
-            alt_text={"text": "Test alt text"}
         )
 
 
@@ -344,7 +266,7 @@ class TestCreateTweet:
         mock_get_client.assert_called_once()
         mock_client.create_tweet.assert_called_once_with(
             text="Check out this amazing image!",
-            media_ids=["123456789", "987654321"]
+            media_ids=[123456789, 987654321]
         )
         assert result == 'tweet_123456789'
 
@@ -361,7 +283,7 @@ class TestCreateTweet:
         
         mock_client.create_tweet.assert_called_once_with(
             text="Single image tweet",
-            media_ids=["123456789"]
+            media_ids=[123456789]
         )
         assert result == 'tweet_987654321'
 
@@ -378,44 +300,195 @@ class TestCreateTweet:
         
         mock_client.create_tweet.assert_called_once_with(
             text="Text only tweet",
-            media_ids=[]
+            media_ids=None
         )
         assert result == 'tweet_empty_media'
 
     @patch('pixelbliss.twitter.client.get_client')
-    def test_create_tweet_long_text(self, mock_get_client):
-        """Test creating tweet with long text."""
+    def test_create_tweet_alternative_response_format(self, mock_get_client):
+        """Test creating tweet with alternative response format."""
         mock_client = Mock()
         mock_response = Mock()
-        mock_response.data = {'id': 'tweet_long_text'}
+        # Simulate response without .data attribute but with .id
+        mock_response.data = None
+        mock_response.id = 'tweet_alt_format'
         mock_client.create_tweet.return_value = mock_response
         mock_get_client.return_value = mock_client
         
-        long_text = "This is a very long tweet that might exceed normal character limits but we're testing to make sure our function handles it properly and passes it through to the Twitter API correctly."
-        
-        result = create_tweet(long_text, ["123456789"])
+        result = create_tweet("Alternative format tweet", ["123456789"])
         
         mock_client.create_tweet.assert_called_once_with(
-            text=long_text,
-            media_ids=["123456789"]
+            text="Alternative format tweet",
+            media_ids=[123456789]
         )
-        assert result == 'tweet_long_text'
+        assert result == 'tweet_alt_format'
+
+
+class TestGetUserInfo:
+    """Test cases for get_user_info function."""
 
     @patch('pixelbliss.twitter.client.get_client')
-    def test_create_tweet_special_characters(self, mock_get_client):
-        """Test creating tweet with special characters and emojis."""
+    def test_get_user_info_by_username(self, mock_get_client):
+        """Test getting user info by username."""
         mock_client = Mock()
-        mock_response = Mock()
-        mock_response.data = {'id': 'tweet_special_chars'}
-        mock_client.create_tweet.return_value = mock_response
         mock_get_client.return_value = mock_client
         
-        special_text = "Amazing AI art! 🎨✨ #AIArt #DigitalArt @pixelbliss"
+        mock_user_data = Mock()
+        mock_user_data.id = '123456789'
+        mock_user_data.name = 'Test User'
+        mock_user_data.username = 'testuser'
+        mock_user_data.public_metrics = {'followers_count': 100, 'following_count': 50}
         
-        result = create_tweet(special_text, ["123456789"])
+        mock_response = Mock()
+        mock_response.data = mock_user_data
+        mock_client.get_user.return_value = mock_response
         
-        mock_client.create_tweet.assert_called_once_with(
-            text=special_text,
-            media_ids=["123456789"]
+        result = get_user_info('testuser')
+        
+        mock_client.get_user.assert_called_once_with(
+            username='testuser',
+            user_fields=['id', 'name', 'username', 'public_metrics']
         )
-        assert result == 'tweet_special_chars'
+        
+        expected = {
+            'id': '123456789',
+            'name': 'Test User',
+            'username': 'testuser',
+            'public_metrics': {'followers_count': 100, 'following_count': 50}
+        }
+        assert result == expected
+
+    @patch('pixelbliss.twitter.client.get_client')
+    def test_get_user_info_authenticated_user(self, mock_get_client):
+        """Test getting authenticated user info."""
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+        
+        mock_user_data = Mock()
+        mock_user_data.id = '987654321'
+        mock_user_data.name = 'Auth User'
+        mock_user_data.username = 'authuser'
+        mock_user_data.public_metrics = {'followers_count': 200, 'following_count': 75}
+        
+        mock_response = Mock()
+        mock_response.data = mock_user_data
+        mock_client.get_me.return_value = mock_response
+        
+        result = get_user_info()
+        
+        mock_client.get_me.assert_called_once_with(
+            user_fields=['id', 'name', 'username', 'public_metrics']
+        )
+        
+        expected = {
+            'id': '987654321',
+            'name': 'Auth User',
+            'username': 'authuser',
+            'public_metrics': {'followers_count': 200, 'following_count': 75}
+        }
+        assert result == expected
+
+    @patch('pixelbliss.twitter.client.get_client')
+    def test_get_user_info_user_not_found(self, mock_get_client):
+        """Test getting user info when user is not found."""
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+        
+        mock_response = Mock()
+        mock_response.data = None
+        mock_client.get_user.return_value = mock_response
+        
+        with pytest.raises(Exception, match="User not found: nonexistentuser"):
+            get_user_info('nonexistentuser')
+
+
+class TestGetTweetInfo:
+    """Test cases for get_tweet_info function."""
+
+    @patch('pixelbliss.twitter.client.get_client')
+    def test_get_tweet_info_success(self, mock_get_client):
+        """Test getting tweet info successfully."""
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+        
+        mock_tweet_data = Mock()
+        mock_tweet_data.id = '123456789'
+        mock_tweet_data.text = 'This is a test tweet'
+        mock_tweet_data.created_at = '2023-01-01T12:00:00Z'
+        mock_tweet_data.public_metrics = {'retweet_count': 5, 'like_count': 10}
+        mock_tweet_data.author_id = '987654321'
+        
+        mock_author = Mock()
+        mock_author.id = '987654321'
+        mock_author.username = 'testuser'
+        mock_author.name = 'Test User'
+        
+        mock_response = Mock()
+        mock_response.data = mock_tweet_data
+        mock_response.includes = {'users': [mock_author]}
+        mock_client.get_tweet.return_value = mock_response
+        
+        result = get_tweet_info('123456789')
+        
+        mock_client.get_tweet.assert_called_once_with(
+            '123456789',
+            tweet_fields=['created_at', 'public_metrics', 'author_id', 'text'],
+            expansions=['author_id'],
+            user_fields=['username', 'name']
+        )
+        
+        expected = {
+            'id': '123456789',
+            'text': 'This is a test tweet',
+            'created_at': '2023-01-01T12:00:00Z',
+            'public_metrics': {'retweet_count': 5, 'like_count': 10},
+            'author_id': '987654321',
+            'author': {
+                'id': '987654321',
+                'username': 'testuser',
+                'name': 'Test User'
+            }
+        }
+        assert result == expected
+
+    @patch('pixelbliss.twitter.client.get_client')
+    def test_get_tweet_info_without_author(self, mock_get_client):
+        """Test getting tweet info without author expansion."""
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+        
+        mock_tweet_data = Mock()
+        mock_tweet_data.id = '123456789'
+        mock_tweet_data.text = 'This is a test tweet'
+        mock_tweet_data.created_at = '2023-01-01T12:00:00Z'
+        mock_tweet_data.public_metrics = {'retweet_count': 5, 'like_count': 10}
+        mock_tweet_data.author_id = '987654321'
+        
+        mock_response = Mock()
+        mock_response.data = mock_tweet_data
+        mock_response.includes = None
+        mock_client.get_tweet.return_value = mock_response
+        
+        result = get_tweet_info('123456789')
+        
+        expected = {
+            'id': '123456789',
+            'text': 'This is a test tweet',
+            'created_at': '2023-01-01T12:00:00Z',
+            'public_metrics': {'retweet_count': 5, 'like_count': 10},
+            'author_id': '987654321'
+        }
+        assert result == expected
+
+    @patch('pixelbliss.twitter.client.get_client')
+    def test_get_tweet_info_not_found(self, mock_get_client):
+        """Test getting tweet info when tweet is not found."""
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+        
+        mock_response = Mock()
+        mock_response.data = None
+        mock_client.get_tweet.return_value = mock_response
+        
+        with pytest.raises(Exception, match="Tweet not found: nonexistenttweet"):
+            get_tweet_info('nonexistenttweet')

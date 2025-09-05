@@ -5,7 +5,7 @@ Pillow
 imagehash
 tenacity
 openai
-tweepy
+tweepy>=4.14.0
 replicate
 pytz
 PyYAML

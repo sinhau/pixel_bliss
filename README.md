@@ -37,10 +37,30 @@ REPLICATE_API_TOKEN
 OPENAI_API_KEY
 X_API_KEY
 X_API_SECRET
+X_CLIENT_ID
+X_CLIENT_SECRET
 X_ACCESS_TOKEN
 X_ACCESS_TOKEN_SECRET
+X_BEARER_TOKEN
 ALERT_WEBHOOK_URL
+DISCORD_BOT_TOKEN
+DISCORD_USER_ID
 ```
+
+### Twitter/X API Configuration
+
+PixelBliss now uses **Twitter API v2** with OAuth 2.0 authentication for improved reliability and modern features:
+
+- **Required for posting**: `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET`
+- **Optional but recommended**: `X_BEARER_TOKEN` for enhanced API access
+- **For OAuth 2.0 apps**: `X_CLIENT_ID`, `X_CLIENT_SECRET` (if using OAuth 2.0 flow)
+
+The implementation automatically handles:
+- v2 API endpoints (`POST /2/tweets` instead of v1.1)
+- OAuth 2.0 authentication with proper scopes
+- v2 media upload with fallback to v1.1 for compatibility
+- Modern response format handling
+- Rate limiting with automatic retry
 
 ## Outputs
 
