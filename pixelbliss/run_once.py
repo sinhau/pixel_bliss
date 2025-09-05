@@ -22,8 +22,27 @@ def generate_theme_hint() -> str:
     """
     # Simple theme hints that work well with the knobs system
     themes = [
-        "abstract", "nature", "cosmic", "geometric", "atmospheric", 
-        "minimal", "organic", "crystalline", "flowing", "luminous"
+        # keep the broad, content-agnostic originals
+        "abstract", "nature", "cosmic", "geometric", "organic", "crystalline", "flow",
+
+        # concept & idea themes (not style/mood)
+        "balance", "harmony", "unity", "duality", "symmetry", "asymmetry",
+        "cycles", "growth", "renewal", "emergence", "evolution",
+        "interconnection", "networks", "continuum", "wholeness", "infinity",
+        "order and randomness", "pattern", "repetition", "rhythm",
+
+        # math & structure (conceptual domains, not aesthetics)
+        "fractal", "spirals", "tessellation", "lattice", "grid",
+        "waveforms", "fields", "orbits", "constellations", "topography", "cartography",
+
+        # natural domains (generic, non-specific)
+        "elemental", "terrestrial", "celestial", "aquatic", "mineral",
+        "botanical", "aerial", "seasonal", "weather",
+
+        # metaphor & abstract idea spaces
+        "journey", "thresholds", "liminality", "sanctuary", "play",
+        "curiosity", "wonder", "stillness", "openness", "simplicity",
+        "order and flow", "cause and effect", "microcosm and macrocosm"
     ]
     return random.choice(themes)
 
