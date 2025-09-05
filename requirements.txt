@@ -10,3 +10,6 @@ replicate
 pytz
 PyYAML
 fal_client
+pytest
+pytest-mock
+pytest-cov
