@@ -9,6 +9,6 @@ def generate_image(prompt: str, provider: str, model: str) -> Optional[ImageResu
         return generate_fal_image(prompt, model)
     elif provider == "replicate":
         from .replicate import generate_replicate_image
-        return generate_replicate_image(prompt, model, retries)
+        return generate_replicate_image(prompt, model)
     else:
         raise ValueError(f"Unknown provider: {provider}")
