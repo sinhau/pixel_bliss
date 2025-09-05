@@ -112,6 +112,16 @@ async def ask_user_to_select_raw(candidates: List[Dict], cfg, logger: logging.Lo
                         )
                     )
                 
+                # Add "none" option to reject all candidates (only in the first batch)
+                if batch_start == 0:
+                    select_options.append(
+                        discord.SelectOption(
+                            label="❌ None (reject all)",
+                            value="none",
+                            description="Reject all candidates and end pipeline"
+                        )
+                    )
+                
                 class CandidateSelect(discord.ui.View):
                     def __init__(self):
                         super().__init__(timeout=timeout)
@@ -127,11 +137,18 @@ async def ask_user_to_select_raw(candidates: List[Dict], cfg, logger: logging.Lo
                             await interaction.response.send_message("This selection is not for you.", ephemeral=True)
                             return
                         
-                        selected_index = int(select.values[0])
-                        selected_candidate = candidates[selected_index]
+                        selected_value = select.values[0]
                         
-                        await interaction.response.send_message(f"✅ Using candidate #{selected_index+1}. Thanks!")
-                        logger.info(f"User selected candidate #{selected_index+1}")
+                        if selected_value == "none":
+                            # User rejected all candidates - set to special sentinel value
+                            selected_candidate = "none"
+                            await interaction.response.send_message("❌ All candidates rejected. Pipeline will end without posting.")
+                            logger.info("User rejected all candidates via 'none' selection")
+                        else:
+                            selected_index = int(selected_value)
+                            selected_candidate = candidates[selected_index]
+                            await interaction.response.send_message(f"✅ Using candidate #{selected_index+1}. Thanks!")
+                            logger.info(f"User selected candidate #{selected_index+1}")
                         
                         selection_event.set()
                 

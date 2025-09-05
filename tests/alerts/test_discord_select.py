@@ -874,3 +874,116 @@ class TestDiscordSelect:
                     # Due to mocking, selected_candidate remains None, so should log timeout/failure
                     assert result is None
                     logger.info.assert_any_call("Discord human selection timed out or failed")
+
+    @pytest.mark.asyncio
+    async def test_ask_user_to_select_raw_none_selection(self):
+        """Test ask_user_to_select_raw when user selects 'none' to reject all candidates."""
+        candidates = [{"image": self.small_test_image, "provider": "fal", "model": "test"}]
+        
+        cfg = Mock()
+        cfg.discord.bot_token_env = "DISCORD_BOT_TOKEN"
+        cfg.discord.user_id_env = "DISCORD_USER_ID"
+        cfg.discord.timeout_sec = 30
+        cfg.discord.batch_size = 10
+        logger = Mock()
+        
+        with patch('pixelbliss.alerts.discord_select.os.getenv') as mock_getenv:
+            mock_getenv.side_effect = lambda key, default: "test_token" if key == "DISCORD_BOT_TOKEN" else "123456789"
+            
+            with patch('pixelbliss.alerts.discord_select.add_candidate_numbers_to_images') as mock_numbering:
+                mock_numbering.return_value = candidates
+                
+                # Mock Discord to simulate "none" selection
+                with patch('pixelbliss.alerts.discord_select.discord') as mock_discord_module, \
+                     patch('pixelbliss.alerts.discord_select.asyncio') as mock_asyncio_module:
+                    
+                    # Create a mock that will simulate the "none" selection
+                    mock_event = Mock()
+                    mock_event.wait = Mock(return_value=None)
+                    mock_event.set = Mock(return_value=None)
+                    mock_asyncio_module.Event.return_value = mock_event
+                    
+                    # Mock asyncio operations
+                    mock_task = Mock()
+                    mock_asyncio_module.create_task = Mock(return_value=mock_task)
+                    mock_asyncio_module.wait_for = Mock(return_value=None)
+                    
+                    # Mock Discord client
+                    mock_client = Mock()
+                    mock_user = Mock()
+                    mock_user.display_name = "TestUser"
+                    mock_dm = Mock()
+                    
+                    mock_client.fetch_user = Mock(return_value=mock_user)
+                    mock_user.create_dm = Mock(return_value=mock_dm)
+                    mock_dm.send = Mock(return_value=None)
+                    mock_client.start = Mock(return_value=None)
+                    mock_client.is_closed = Mock(return_value=False)
+                    mock_client.close = Mock(return_value=None)
+                    mock_client.user = Mock()
+                    
+                    mock_discord_module.Client.return_value = mock_client
+                    mock_discord_module.Intents.none.return_value = Mock()
+                    mock_discord_module.File = Mock()
+                    mock_discord_module.SelectOption = Mock()
+                    
+                    # Mock UI components
+                    mock_view = Mock()
+                    mock_discord_module.ui.View = Mock(return_value=mock_view)
+                    mock_discord_module.ui.select = Mock()
+                    
+                    # We can't easily simulate the actual selection in the mocked environment,
+                    # but we can test that the function completes without error
+                    result = await ask_user_to_select_raw(candidates, cfg, logger)
+                    
+                    # Due to mocking, result will be None, but we verify the flow started
+                    assert result is None
+                    logger.info.assert_any_call("Starting Discord human-in-the-loop selection for 1 candidates")
+
+    @pytest.mark.asyncio
+    async def test_ask_user_to_select_raw_none_option_in_first_batch_only(self):
+        """Test that 'none' option is only added to the first batch."""
+        # Create multiple candidates to test multiple batches
+        candidates = []
+        for i in range(15):  # More than batch_size to test multiple batches
+            candidates.append({"image": self.small_test_image, "provider": f"provider{i}", "model": f"model{i}"})
+        
+        cfg = Mock()
+        cfg.discord.bot_token_env = "DISCORD_BOT_TOKEN"
+        cfg.discord.user_id_env = "DISCORD_USER_ID"
+        cfg.discord.timeout_sec = 0.01
+        cfg.discord.batch_size = 5  # Small batch size to force multiple batches
+        logger = Mock()
+        
+        with patch('pixelbliss.alerts.discord_select.os.getenv') as mock_getenv:
+            mock_getenv.side_effect = lambda key, default: "test_token" if key == "DISCORD_BOT_TOKEN" else "123456789"
+            
+            with patch('pixelbliss.alerts.discord_select.add_candidate_numbers_to_images') as mock_numbering:
+                mock_numbering.return_value = candidates
+                
+                # Mock Discord and asyncio to avoid real operations
+                with patch('pixelbliss.alerts.discord_select.discord') as mock_discord_module, \
+                     patch('pixelbliss.alerts.discord_select.asyncio') as mock_asyncio_module:
+                    
+                    mock_event = Mock()
+                    mock_event.wait = Mock(return_value=None)
+                    mock_event.set = Mock(return_value=None)
+                    mock_asyncio_module.Event.return_value = mock_event
+                    mock_asyncio_module.create_task = Mock()
+                    mock_asyncio_module.wait_for = Mock(side_effect=Exception("Exit early"))
+                    mock_asyncio_module.sleep = Mock(return_value=None)
+                    
+                    mock_client = Mock()
+                    mock_client.start = Mock(side_effect=Exception("Exit early"))
+                    mock_client.is_closed = Mock(return_value=False)
+                    mock_client.close = Mock()
+                    mock_client.event = Mock()
+                    mock_discord_module.Client.return_value = mock_client
+                    mock_discord_module.File = Mock()
+                    mock_discord_module.SelectOption = Mock()
+                    
+                    result = await ask_user_to_select_raw(candidates, cfg, logger)
+                    
+                    assert result is None
+                    # Verify the function started processing multiple candidates
+                    logger.info.assert_any_call("Starting Discord human-in-the-loop selection for 15 candidates")

@@ -434,7 +434,13 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             from .alerts import discord_select
             
             selected = await discord_select.ask_user_to_select_raw(candidates, cfg, logger)
-            if selected is None:
+            if selected == "none":
+                # User rejected all candidates - end pipeline without posting or saving
+                logger.info("User rejected all candidates via Discord selection - ending pipeline")
+                progress_logger.success("All candidates rejected by user - pipeline ended")
+                progress_logger.finish_pipeline(success=True)
+                return 0
+            elif selected is None:
                 # Fallback if no response: pick first generated candidate
                 winner = candidates[0]
                 timeout_fallback = True

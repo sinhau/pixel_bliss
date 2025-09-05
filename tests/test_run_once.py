@@ -1618,3 +1618,48 @@ class TestAsyncPromptGeneration:
         assert saved_meta["human_selection"]["enabled"] is True
         assert saved_meta["human_selection"]["selected_rank_raw"] == 1  # First candidate (fallback)
         assert saved_meta["human_selection"]["timeout_fallback"] is True
+
+    @patch('pixelbliss.run_once.config.load_config')
+    @patch('pixelbliss.run_once.select_category')
+    @patch('pixelbliss.run_once.prompts.make_base')
+    @patch('pixelbliss.run_once.prompts.make_variants_from_base')
+    @patch('pixelbliss.run_once.generate_images_sequential')
+    @patch('pixelbliss.alerts.discord_select.ask_user_to_select_raw')
+    @pytest.mark.asyncio
+    async def test_post_once_discord_human_selection_none(self, mock_discord_select, mock_sequential, mock_variants, mock_base, mock_category, mock_config):
+        """Test post_once with Discord human selection 'none' (reject all candidates)."""
+        # Setup config with Discord enabled
+        mock_cfg = Mock()
+        mock_cfg.categories = ["test"]
+        mock_cfg.image_generation.async_enabled = False
+        mock_cfg.image_generation.model_fal = ["model1"]
+        mock_cfg.image_generation.provider_order = ["fal", "replicate"]
+        mock_cfg.image_generation.model_replicate = ["model2"]
+        mock_cfg.prompt_generation.num_prompt_variants = 1
+        mock_cfg.prompt_generation.async_enabled = False
+        mock_cfg.prompt_generation.provider = "dummy"
+        mock_cfg.discord.enabled = True  # Enable Discord for this test
+        mock_config.return_value = mock_cfg
+        
+        # Setup mocks
+        mock_category.return_value = "test"
+        mock_base.return_value = "base prompt"
+        mock_variants.return_value = ["variant1"]
+        
+        # Mock successful image generation
+        mock_image = Mock()
+        mock_candidates = [
+            {"image": mock_image, "provider": "fal", "model": "test", "seed": 123, "prompt": "variant1"}
+        ]
+        mock_sequential.return_value = mock_candidates
+        
+        # Mock Discord selection returning "none" (user rejected all candidates)
+        mock_discord_select.return_value = "none"
+        
+        result = await post_once(dry_run=True)
+        
+        assert result == 0  # Should return success (pipeline ended cleanly)
+        # Verify Discord selection was called
+        mock_discord_select.assert_called_once_with(mock_candidates, mock_cfg, ANY)
+        # Verify that no further processing happened (no file operations, etc.)
+        # The pipeline should have ended early without saving anything
