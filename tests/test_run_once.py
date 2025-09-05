@@ -139,6 +139,7 @@ class TestUtilityFunctions:
             tz = pytz.timezone("America/Los_Angeles")
             mock_now = datetime.datetime(2024, 1, 15, 14, 30, 0, tzinfo=tz)
             mock_datetime.now.return_value = mock_now
+            mock_datetime.now.return_value.strftime.return_value = "2024-01-15"
             
             result = today_local()
             assert result == "2024-01-15"

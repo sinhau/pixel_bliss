@@ -83,8 +83,8 @@ class TestConfig:
         try:
             config = load_config(temp_path)
             assert config.alerts.enabled is True
-            # The webhook_url should be set from environment
-            assert hasattr(config.alerts, 'webhook_url')
+            # The webhook_url_env should be set
+            assert config.alerts.webhook_url_env == "TEST_WEBHOOK_URL"
         finally:
             os.unlink(temp_path)
 
