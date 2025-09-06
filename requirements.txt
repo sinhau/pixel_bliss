@@ -11,7 +11,7 @@ replicate
 pytz
 PyYAML
 fal_client
-opencv-python
+opencv-python-headless>=4.9
 colorama
 discord.py
 pytest
