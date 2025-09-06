@@ -181,7 +181,7 @@ def make_alt_text(base_prompt: str, variant_prompt: str, cfg: Config) -> str:
 
 def make_twitter_blurb(theme: str, image_path: str, cfg: Config) -> str:
     """
-    Generate a short, engaging blurb for Twitter posts using multimodal capabilities.
+    Generate a short, engaging spiritual or philosophical quote for Twitter posts using multimodal capabilities.
     
     Args:
         theme: The theme/category hint used for generation.
@@ -189,8 +189,8 @@ def make_twitter_blurb(theme: str, image_path: str, cfg: Config) -> str:
         cfg: Configuration object containing prompt generation settings.
         
     Returns:
-        str: Generated blurb (haiku, philosophical quote, or short poem) 
-             that complements the image and theme, under 280 characters.
+        str: Generated spiritual or philosophical quote that is easily understandable,
+             grounded, and complements the image and theme as a good caption, under 280 characters.
              Returns empty string if generation fails.
     """
     logger = get_logger('prompts')

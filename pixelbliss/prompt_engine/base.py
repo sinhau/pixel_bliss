@@ -49,14 +49,14 @@ class PromptProvider(Protocol):
     
     def make_twitter_blurb(self, theme: str, image_path: str) -> str:
         """
-        Generate a short, engaging blurb for Twitter posts using multimodal capabilities.
+        Generate a short, engaging spiritual or philosophical quote for Twitter posts using multimodal capabilities.
         
         Args:
             theme: The theme/category hint used for generation.
             image_path: Path to the generated image file.
             
         Returns:
-            str: Generated blurb (haiku, philosophical quote, or short poem) 
-                 that complements the image and theme, under 280 characters.
+            str: Generated spiritual or philosophical quote that is easily understandable,
+                 grounded, and complements the image and theme as a good caption, under 280 characters.
         """
         ...

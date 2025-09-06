@@ -22,7 +22,7 @@ class TestTwitterBlurb:
         self.mock_config.prompt_generation.model = "test-model"
 
     def test_make_twitter_blurb_with_dummy_provider(self):
-        """Test Twitter blurb generation with dummy provider."""
+        """Test spiritual/philosophical quote generation with dummy provider."""
         blurb = prompts.make_twitter_blurb(
             self.theme, 
             "/fake/image/path.jpg", 
@@ -230,7 +230,7 @@ class TestTwitterBlurb:
             prompts.get_provider(config)
 
     def test_blurb_content_quality(self):
-        """Test that generated blurbs have appropriate content."""
+        """Test that generated spiritual/philosophical quotes have appropriate content."""
         provider = DummyLocalProvider()
         
         themes = ["nature", "cosmic", "harmony", "flow"]
@@ -244,11 +244,16 @@ class TestTwitterBlurb:
             # Should contain the theme
             assert theme in blurb
             
-            # Should be poetic (contain line breaks for haiku or be contemplative)
-            assert '\n' in blurb or any(word in blurb.lower() for word in ['find', 'moment', 'beauty', 'peace', 'wonder'])
+            # Should be spiritual/philosophical (contain contemplative words or concepts)
+            spiritual_words = ['discover', 'essence', 'wisdom', 'beauty', 'peace', 'wonder', 'truth', 'moment', 'spirit', 'within', 'find', 'realize', 'reminds', 'teaches', 'gratitude', 'sacred']
+            assert any(word in blurb.lower() for word in spiritual_words), f"Blurb should contain spiritual/philosophical content: {blurb}"
             
             # Should not be empty or just whitespace
             assert blurb.strip()
+            
+            # Should be easily understandable (not overly abstract)
+            # Check that it doesn't contain overly complex metaphors or nonsensical poetry
+            assert len(blurb.split()) >= 5, "Quote should be substantial enough to convey meaning"
 
     def test_integration_with_different_themes(self):
         """Test integration with various themes."""

@@ -62,33 +62,37 @@ class DummyLocalProvider(PromptProvider):
 
     def make_twitter_blurb(self, theme: str, image_path: str) -> str:
         """
-        Generate a simple Twitter blurb for testing purposes.
+        Generate a simple spiritual/philosophical quote for testing purposes.
         
         Args:
             theme: The theme/category hint used for generation.
             image_path: Path to the generated image file (unused in dummy implementation).
             
         Returns:
-            str: Simple test blurb that complements the theme.
+            str: Simple spiritual/philosophical quote that complements the theme.
         """
         logger = get_logger('prompt_engine.dummy_local')
-        logger.info(f"[dummy] Generating twitter blurb (theme='{theme}')")
+        logger.info(f"[dummy] Generating spiritual/philosophical quote (theme='{theme}')")
         logger.debug(f"[dummy] Image path provided: '{image_path}' (unused in dummy mode)")
         
-        # Simple template-based blurbs for testing
+        # Grounded spiritual/philosophical quotes for testing
         blurbs = [
-            f"Beauty flows through\n{theme} in gentle whispers—\npeace finds its home.",
-            f"In {theme}, we find the quiet spaces where wonder lives.",
-            f"Every moment of {theme} holds a universe of calm.",
-            f"Where {theme} meets light,\nmagic writes itself in color—\nstillness, profound."
+            f"In {theme}, we discover that true beauty lies not in perfection, but in the harmony of imperfect moments.",
+            f"Every element of {theme} reminds us that peace is not the absence of complexity, but finding stillness within it.",
+            f"The essence of {theme} teaches us that wonder is always present—we need only pause to notice.",
+            f"Through {theme}, we learn that the most profound truths are often found in the simplest observations.",
+            f"In contemplating {theme}, we realize that beauty is not something we see, but something we recognize within ourselves.",
+            f"The wisdom of {theme} shows us that every moment contains both the question and the answer we seek.",
+            f"Within {theme} lies the reminder that we are both observers and participants in the dance of existence.",
+            f"The spirit of {theme} whispers that gratitude transforms ordinary moments into sacred experiences."
         ]
         
         # Use hash of theme to get consistent but varied results
         index = hash(theme) % len(blurbs)
         selected_blurb = blurbs[index]
         
-        logger.debug(f"[dummy] Selected blurb template #{index + 1} of {len(blurbs)}")
-        logger.info(f"[dummy] Blurb generated successfully (len={len(selected_blurb)}, lines={selected_blurb.count(chr(10)) + 1})")
+        logger.debug(f"[dummy] Selected quote template #{index + 1} of {len(blurbs)}")
+        logger.info(f"[dummy] Quote generated successfully (len={len(selected_blurb)})")
         
         return selected_blurb
 

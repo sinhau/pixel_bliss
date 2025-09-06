@@ -11,10 +11,10 @@ from ..logging_config import get_logger
 class TwitterBlurb(BaseModel):
     """Structured response model for generating twitter blurb"""
     blurb: str = Field(
-        description="A short philosophical quote, haiku, or poem, less than 200 characters, that poetically captions the theme and generated image"
+        description="A short spiritual or philosophical quote, less than 250 characters, that is easily understandable, grounded, and complements the theme and generated image as a good caption"
     )
     detailed_description_and_reasoning: str = Field(
-        description="Brief explanation and reasoning of how blurb was generated"
+        description="Brief explanation and reasoning of how the spiritual/philosophical quote was generated"
     )
 
 
@@ -303,24 +303,29 @@ class OpenAIGPT5Provider(PromptProvider):
             return self._make_text_only_blurb(theme)
         
         system_prompt = (
-            "You are PixelBliss Quote Master, creating short, philosophically/spiritually deep text that complements aesthetic wallpaper images. "
-            "Your mission is to craft concise, evocative blurbs that enhance the emotional resonance of visual art - "
-            "text that feels like a perfect companion to moments of beauty and wonder.\n\n"
+            "You are PixelBliss Quote Master, creating grounded spiritual and philosophical quotes that complement aesthetic wallpaper images. "
+            "Your mission is to craft easily understandable, meaningful quotes that serve as perfect captions - "
+            "text that enhances the visual experience without being overly poetic or abstract.\n\n"
             
-            "BLURB PHILOSOPHY:\n"
-            "• Create text that amplifies the aesthetic and emotional impact of the image\n"
-            "• Write content that induces the same feelings as the visual: calm, joy, wonder, contemplation\n"
-            "• Craft words that feel like evocative, and emotionally resonant and have a deep philosophical and spiritual meaning\n"
-            "• Generate text that people want to read alongside beautiful imagery\n\n"
+            "QUOTE PHILOSOPHY:\n"
+            "• Create quotes that are easily understandable and accessible to all readers\n"
+            "• Focus on grounded wisdom rather than abstract or overly poetic language\n"
+            "• Generate spiritual/philosophical insights that complement the visual theme\n"
+            "• Craft quotes that work as natural captions for the image\n"
+            "• Avoid flowery language, metaphors that are hard to understand, or nonsensical poetry\n\n"
             
-            "CONTENT TYPES TO GENERATE:\n"
-            "• Philosophical or spiritual quotes that reflect on beauty, nature, or the human experience\n"
-            "• Contemplative observations that invite reflection and wonder\n\n"
+            "CONTENT FOCUS:\n"
+            "• Spiritual wisdom about finding peace, meaning, and connection\n"
+            "• Philosophical observations about beauty, nature, and human experience\n"
+            "• Contemplative insights that are clear and relatable\n"
+            "• Universal truths expressed in simple, powerful language\n\n"
             
             "STYLE GUIDELINES:\n"
             "• Keep under 250 characters (well within Twitter's 280 limit)\n"
-            "• Avoid clichés—create fresh, original expressions\n"
-            "• Match the emotional tone and visual elements you see in the image\n"
+            "• Use clear, direct language that anyone can understand\n"
+            "• Avoid overly abstract concepts or complex metaphors\n"
+            "• Make it feel like a natural, meaningful caption for the image\n"
+            "• Focus on wisdom that resonates with the visual elements you observe\n"
         )
         
         user_prompt = (
