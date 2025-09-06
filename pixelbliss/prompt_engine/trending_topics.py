@@ -9,7 +9,19 @@ import os
 import time
 from typing import Optional
 from openai import AsyncOpenAI
+from pydantic import BaseModel, Field
 from ..logging_config import get_logger
+
+
+class ThemeRecommendation(BaseModel):
+    """Structured response model for theme recommendations."""
+    theme: str = Field(
+        description="A theme recommendation (1-2 sentences) that fully describes the wallpaper theme"
+    )
+    reasoning: str = Field(
+        description="Brief explanation of why this theme is trending and suitable for wallpapers"
+    )
+
 
 class TrendingTopicsProvider:
     """Provider for fetching trending topics and recommending themes using OpenAI GPT-5 with web search."""
@@ -58,16 +70,12 @@ class TrendingTopicsProvider:
             "• Focus on concepts that inspire beautiful, contemplative imagery\n"
             "• Consider global trends, not just regional ones\n\n"
             
-            "OUTPUT FORMAT:\n"
-            "Provide a single, concise theme recommendation (1-3 words) that captures the essence "
-            "of current trends while being suitable for aesthetic wallpaper generation.\n\n"
-            
             "EXAMPLES OF GOOD THEMES:\n"
-            "• 'aurora borealis' (during solar activity news)\n"
-            "• 'cherry blossoms' (during spring season)\n"
-            "• 'cosmic wonder' (during space exploration news)\n"
-            "• 'minimalist zen' (during wellness trends)\n"
-            "• 'golden hour' (during photography trends)"
+            "• 'Ethereal aurora borealis dancing across a starlit winter sky with vibrant green and purple hues' (during solar activity news)\n"
+            "• 'Delicate cherry blossoms in full bloom creating a dreamy pink canopy over a serene Japanese garden' (during spring season)\n"
+            "• 'Cosmic nebulae with swirling galaxies and distant stars in deep space blues and purples' (during space exploration news)\n"
+            "• 'Minimalist zen garden with smooth river stones and gentle bamboo shadows in soft earth tones' (during wellness trends)\n"
+            "• 'Golden hour sunlight filtering through misty forest trees creating warm amber and honey tones' (during photography trends)"
         )
         
         user_prompt = (
@@ -79,13 +87,12 @@ class TrendingTopicsProvider:
             "3. Aesthetic movements and design trends\n"
             "4. Popular visual themes in art and photography\n"
             "5. Emerging color palettes and visual styles\n\n"
-            "Provide your recommendation as a single, concise theme (1-3 words) that captures the current zeitgeist "
-            "while being perfect for generating beautiful wallpaper art."
+            "Provide your recommendation with a brief explanation of why this theme is trending and suitable for wallpapers."
         )
         
         start_time = time.time()
         
-        # Use web search enabled model
+        # Use web search enabled model with structured outputs
         response = await self.async_client.chat.completions.create(
             model=self.model,
             messages=[
@@ -93,14 +100,18 @@ class TrendingTopicsProvider:
                 {"role": "user", "content": user_prompt}
             ],
             # Enable web search if available
-            tools=[{"type": "web_search"}]
+            tools=[{"type": "web_search"}],
+            # Use structured outputs
+            response_format=ThemeRecommendation
         )
         
         generation_time = time.time() - start_time
-        theme = response.choices[0].message.content.strip()
         
-        # Clean up the theme (remove quotes, extra punctuation)
-        theme = theme.strip('"\'.,!?').lower()
+        # Parse the structured response
+        theme_recommendation = response.choices[0].message.parsed
+        
+        # Extract the theme (don't clean up since it can be 1-2 sentences)
+        theme = theme_recommendation.theme.strip()
         
         self.logger.info(f"Generated trending theme in {generation_time:.2f}s: {theme}")
         if progress_logger:
