@@ -168,21 +168,21 @@ class TestTrendingTopicsProvider:
         # Verify API parameters for phase 1 (web_search)
         call_args_create = self.provider.async_client.responses.create.call_args
         assert call_args_create[1]['model'] == 'gpt-5'
-        assert len(call_args_create[1]['messages']) == 2
+        assert 'instructions' in call_args_create[1]
+        assert isinstance(call_args_create[1]['instructions'], str) and len(call_args_create[1]['instructions']) > 0
+        assert 'input' in call_args_create[1]
+        assert isinstance(call_args_create[1]['input'], str) and len(call_args_create[1]['input']) > 0
         assert call_args_create[1]['tools'] == [{"type": "web_search"}]
-        messages_create = call_args_create[1]['messages']
-        assert messages_create[0]['role'] == 'system'
-        assert messages_create[1]['role'] == 'user'
+        # Ensure we don't pass messages when using Responses API
+        assert 'messages' not in call_args_create[1]
 
         # Verify API parameters for phase 2 (structured outputs)
         call_args_parse = self.provider.async_client.responses.parse.call_args
         assert call_args_parse[1]['model'] == 'gpt-5'
-        assert len(call_args_parse[1]['messages']) == 2
+        assert 'instructions' in call_args_parse[1]
+        assert 'input' in call_args_parse[1]
         assert 'response_format' in call_args_parse[1]  # Verify structured outputs are used
         # Ensure we don't pass tools to parse phase
         assert 'tools' not in call_args_parse[1]
-        
-        # Verify message structure
-        messages = call_args_parse[1]['messages']
-        assert messages[0]['role'] == 'system'
-        assert messages[1]['role'] == 'user'
+        # Ensure we don't pass messages
+        assert 'messages' not in call_args_parse[1]
