@@ -3,6 +3,7 @@ import tweepy
 import requests
 import mimetypes
 from typing import List, Optional
+from requests_oauthlib import OAuth1
 from ..imaging.compression import prepare_for_twitter_upload
 from ..logging_config import get_logger
 
@@ -22,13 +23,12 @@ def get_client():
         wait_on_rate_limit=True
     )
 
-def _upload_media_v2(file_path: str, access_token: str) -> str:
+def _upload_media_v2(file_path: str) -> str:
     """
-    Upload media using X API v2 directly with HTTP requests.
+    Upload media using X API v2 directly with OAuth 1.0a authentication.
     
     Args:
         file_path: Path to the media file to upload.
-        access_token: OAuth 2.0 access token.
         
     Returns:
         str: Media ID string from X API.
@@ -37,6 +37,15 @@ def _upload_media_v2(file_path: str, access_token: str) -> str:
         Exception: If upload fails.
     """
     logger = get_logger('twitter.upload')
+    
+    # Get OAuth credentials
+    consumer_key = os.getenv("X_API_KEY")
+    consumer_secret = os.getenv("X_API_SECRET")
+    access_token = os.getenv("X_ACCESS_TOKEN")
+    access_token_secret = os.getenv("X_ACCESS_TOKEN_SECRET")
+    
+    if not all([consumer_key, consumer_secret, access_token, access_token_secret]):
+        raise Exception("Missing OAuth credentials for v2 API")
     
     # Determine media type and category
     mime_type, _ = mimetypes.guess_type(file_path)
@@ -53,6 +62,16 @@ def _upload_media_v2(file_path: str, access_token: str) -> str:
     logger.info(f"    • MIME type: {mime_type}")
     logger.info(f"    • Media category: {media_category}")
     
+    # Set up OAuth 1.0a authentication
+    auth = OAuth1(
+        consumer_key,
+        client_secret=consumer_secret,
+        resource_owner_key=access_token,
+        resource_owner_secret=access_token_secret,
+        signature_method='HMAC-SHA1',
+        signature_type='AUTH_HEADER'
+    )
+    
     # Prepare the multipart form data
     with open(file_path, 'rb') as file:
         files = {
@@ -64,16 +83,12 @@ def _upload_media_v2(file_path: str, access_token: str) -> str:
             'media_type': mime_type
         }
         
-        headers = {
-            'Authorization': f'Bearer {access_token}'
-        }
-        
-        # Make the v2 API request
+        # Make the v2 API request with OAuth 1.0a authentication
         response = requests.post(
             'https://api.x.com/2/media/upload',
             files=files,
             data=data,
-            headers=headers
+            auth=auth
         )
     
     if response.status_code == 200:
@@ -114,18 +129,13 @@ def upload_media(paths: List[str]) -> List[str]:
         logger.warning("No processed paths available for upload")
         return []
     
-    # Get access token for v2 API
-    access_token = os.getenv("X_ACCESS_TOKEN")
-    if not access_token:
-        raise Exception("X_ACCESS_TOKEN environment variable not set")
-    
     media_ids = []
     
     for i, path in enumerate(processed_paths, 1):
         logger.info(f"  • Uploading file {i}/{len(processed_paths)}: {path}")
         try:
-            # Try v2 API upload first
-            media_id = _upload_media_v2(path, access_token)
+            # Try v2 API upload first with OAuth 1.0a authentication
+            media_id = _upload_media_v2(path)
             media_ids.append(media_id)
         except Exception as e:
             logger.warning(f"    ⚠ v2 API upload failed: {e}, trying v1.1 fallback")

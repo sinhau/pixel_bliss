@@ -303,7 +303,7 @@ class OpenAIGPT5Provider(PromptProvider):
             return self._make_text_only_blurb(theme)
         
         system_prompt = (
-            "You are PixelBliss Poetry Master, creating short, beautiful text that complements aesthetic wallpaper images. "
+            "You are PixelBliss Quote Master, creating short, philosophically/spiritually deep text that complements aesthetic wallpaper images. "
             "Your mission is to craft concise, evocative blurbs that enhance the emotional resonance of visual art - "
             "text that feels like a perfect companion to moments of beauty and wonder.\n\n"
             
@@ -314,23 +314,20 @@ class OpenAIGPT5Provider(PromptProvider):
             "• Generate text that people want to read alongside beautiful imagery\n\n"
             
             "CONTENT TYPES TO GENERATE:\n"
-            "• Philosophical quotes that reflect on beauty, nature, or the human experience\n"
-            "• Very short poems (1-2 lines) that evoke the mood and atmosphere\n"
+            "• Philosophical or spiritual quotes that reflect on beauty, nature, or the human experience\n"
             "• Contemplative observations that invite reflection and wonder\n\n"
             
             "STYLE GUIDELINES:\n"
-            "• Keep under 200 characters (well within Twitter's 280 limit)\n"
-            "• Use evocative, sensory language that complements visual beauty\n"
+            "• Keep under 250 characters (well within Twitter's 280 limit)\n"
             "• Avoid clichés—create fresh, original expressions\n"
             "• Match the emotional tone and visual elements you see in the image\n"
-            "• Use line breaks for haiku and multi-line poems\n\n"
         )
         
         user_prompt = (
             f"Looking at this beautiful wallpaper image with the theme '{theme}', create a short blurb that "
-            f"captures both the visual beauty you see and the essence of the theme. Generate a haiku or philosophical quote "
+            f"captures both the visual beauty you see and the essence of the theme. Generate a philosophical or spiritual quote "
             f"that complements what you observe in the image. The text should evoke the same feelings "
-            f"of calm, wonder, and aesthetic pleasure as the visual itself. Keep it under 200 characters."
+            f"of calm, wonder, and aesthetic pleasure as the visual itself. Keep it under 250 characters."
         )
 
         logger.debug(f"[openai] Sending vision request to {self.model}")
