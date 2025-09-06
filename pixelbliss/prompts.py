@@ -122,15 +122,10 @@ def make_variants_with_knobs(base_prompt: str, k: int, cfg: Config, progress_log
     logger = get_logger('prompts')
     provider = get_provider(cfg)
     
-    # Generate variant knobs for each variation
+    # Generate variant knobs for each variation - always use multiple strategy for maximum diversity
     variant_knobs_list = []
     for _ in range(k):
-        if cfg.prompt_generation.variant_strategy == "single":
-            # Vary only one knob to maintain identity
-            variant_knobs = KnobSelector.select_single_variant_knob()
-        else:
-            # Vary all knobs for maximum diversity
-            variant_knobs = KnobSelector.select_variant_knobs()
+        variant_knobs = KnobSelector.select_variant_knobs()
         variant_knobs_list.append(variant_knobs)
     
     avoid_list = KnobSelector.get_avoid_list()
@@ -138,9 +133,9 @@ def make_variants_with_knobs(base_prompt: str, k: int, cfg: Config, progress_log
     # Log the start of variant prompt generation
     if progress_logger:
         progress_logger.log_variant_prompt_generation_start(k, cfg.prompt_generation.provider, cfg.prompt_generation.model, False)
-        progress_logger.log_variant_knobs_selected(variant_knobs_list, cfg.prompt_generation.variant_strategy)
+        progress_logger.log_variant_knobs_selected(variant_knobs_list, "multiple")
     else:
-        logger.info(f"Variant knobs selected (strategy: {cfg.prompt_generation.variant_strategy}):")
+        logger.info(f"Variant knobs selected (strategy: multiple):")
         for i, variant_knobs in enumerate(variant_knobs_list, 1):
             logger.info(f"  Variant {i}: {variant_knobs}")
     
@@ -200,15 +195,10 @@ async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config, p
     logger = get_logger('prompts')
     provider = get_provider(cfg)
     
-    # Generate variant knobs for each variation
+    # Generate variant knobs for each variation - always use multiple strategy for maximum diversity
     variant_knobs_list = []
     for _ in range(k):
-        if cfg.prompt_generation.variant_strategy == "single":
-            # Vary only one knob to maintain identity
-            variant_knobs = KnobSelector.select_single_variant_knob()
-        else:
-            # Vary all knobs for maximum diversity
-            variant_knobs = KnobSelector.select_variant_knobs()
+        variant_knobs = KnobSelector.select_variant_knobs()
         variant_knobs_list.append(variant_knobs)
     
     avoid_list = KnobSelector.get_avoid_list()
@@ -216,9 +206,9 @@ async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config, p
     # Log the start of variant prompt generation
     if progress_logger:
         progress_logger.log_variant_prompt_generation_start(k, cfg.prompt_generation.provider, cfg.prompt_generation.model, True)
-        progress_logger.log_variant_knobs_selected(variant_knobs_list, cfg.prompt_generation.variant_strategy)
+        progress_logger.log_variant_knobs_selected(variant_knobs_list, "multiple")
     else:
-        logger.info(f"Variant knobs selected (strategy: {cfg.prompt_generation.variant_strategy}):")
+        logger.info(f"Variant knobs selected (strategy: multiple):")
         for i, variant_knobs in enumerate(variant_knobs_list, 1):
             logger.info(f"  Variant {i}: {variant_knobs}")
     

@@ -9,8 +9,6 @@ prompt_generation:
   num_prompt_variants: 5    # Number of prompt variations to generate from each base prompt (1 base -> 5 variants)
   async_enabled: true       # Enable parallel processing of prompt generation (faster generation)
   max_concurrency: 10     # Optional limit on concurrent API requests (null = no limit, use integer to limit)
-  use_knobs: true           # Use new diverse knobs system instead of legacy categories/art_styles
-  variant_strategy: "multiple"  # "single" = vary one knob (maintains identity), "multiple" = vary all knobs (more diversity)
   # System/style rules enforced at runtime: no real people/logos/NSFW content, includes negative prompts, aesthetic style hints
 
 trending_themes:
@@ -18,14 +16,12 @@ trending_themes:
   provider: "openai"        # Provider for trending topics analysis: "openai" for GPT models, "dummy" for testing
   model: "gpt-5"            # AI model for analyzing trends and recommending themes
   fallback_enabled: true    # Enable fallback to curated themes if trending analysis fails
-  async_enabled: true       # Enable async trending theme generation for better performance
 
 image_generation:
   provider_order: ["fal", "replicate"]  # Order to try image generation providers - FAL first, then Replicate as fallback
   model_fal: ["fal-ai/gemini-25-flash-image", "fal-ai/bytedance/seedream/v3/text-to-image", "fal-ai/imagen4/preview/ultra"]     # FAL AI models to use for image generation
   model_replicate: ["google/gemini-2.5-flash-image", "bytedance/seedream-3", "google/imagen-4-ultra"]   # Replicate models as fallback options
   retries_per_image: 2      # Number of retry attempts per image generation request before giving up
-  async_enabled: true       # Enable parallel processing of prompt variants (faster generation)
   max_concurrency: 10     # Optional limit on concurrent API requests (null = no limit, use integer to limit)
 
 ranking:

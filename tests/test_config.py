@@ -15,8 +15,6 @@ class TestConfig:
         
         assert config.timezone == "America/Los_Angeles"
         assert config.prompt_generation.provider == "openai"
-        assert config.prompt_generation.use_knobs is True
-        assert config.prompt_generation.variant_strategy == "single"
         assert config.image_generation.provider_order == ["fal", "replicate"]
         assert config.ranking.w_aesthetic == 0.50
         assert config.upscale.enabled is True
@@ -27,15 +25,13 @@ class TestConfig:
             timezone="UTC",
             prompt_generation={
                 "provider": "dummy",
-                "use_knobs": False,
-                "variant_strategy": "multiple"
+                "model": "gpt-4"
             }
         )
         
         assert config.timezone == "UTC"
         assert config.prompt_generation.provider == "dummy"
-        assert config.prompt_generation.use_knobs is False
-        assert config.prompt_generation.variant_strategy == "multiple"
+        assert config.prompt_generation.model == "gpt-4"
 
     def test_load_config_valid_yaml(self):
         """Test loading configuration from valid YAML file."""
@@ -43,8 +39,7 @@ class TestConfig:
             "timezone": "UTC",
             "prompt_generation": {
                 "provider": "openai",
-                "model": "gpt-4",
-                "use_knobs": True
+                "model": "gpt-4"
             }
         }
         
@@ -56,7 +51,6 @@ class TestConfig:
             config = load_config(temp_path)
             assert config.timezone == "UTC"
             assert config.prompt_generation.model == "gpt-4"
-            assert config.prompt_generation.use_knobs is True
         finally:
             os.unlink(temp_path)
 

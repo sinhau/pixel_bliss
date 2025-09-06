@@ -14,9 +14,7 @@ class TestPromptsKnobs:
         """Set up test fixtures."""
         self.config = Config(
             prompt_generation=PromptGeneration(
-                provider="dummy",
-                use_knobs=True,
-                variant_strategy="single"
+                provider="dummy"
             )
         )
     
@@ -68,12 +66,12 @@ class TestPromptsKnobs:
             mock_avoid.assert_called_once()
             mock_logger.info.assert_called()
     
-    def test_make_variants_with_knobs_single_strategy(self):
-        """Test variant generation with single knob strategy."""
+    def test_make_variants_with_knobs_multiple_strategy_default(self):
+        """Test variant generation with multiple knobs strategy (now default)."""
         base_prompt = "A beautiful landscape"
         k = 3
         
-        with patch('pixelbliss.prompts.KnobSelector.select_single_variant_knob') as mock_select, \
+        with patch('pixelbliss.prompts.KnobSelector.select_variant_knobs') as mock_select, \
              patch('pixelbliss.prompts.KnobSelector.get_avoid_list') as mock_avoid:
             
             mock_select.side_effect = [
@@ -92,14 +90,6 @@ class TestPromptsKnobs:
     
     def test_make_variants_with_knobs_multiple_strategy(self):
         """Test variant generation with multiple knobs strategy."""
-        config = Config(
-            prompt_generation=PromptGeneration(
-                provider="dummy",
-                use_knobs=True,
-                variant_strategy="multiple"
-            )
-        )
-        
         base_prompt = "A beautiful landscape"
         k = 2
         
@@ -112,7 +102,7 @@ class TestPromptsKnobs:
             ]
             mock_avoid.return_value = ["noise"]
             
-            result = make_variants_with_knobs(base_prompt, k, config)
+            result = make_variants_with_knobs(base_prompt, k, self.config)
             
             assert isinstance(result, list)
             assert len(result) == k
@@ -124,7 +114,7 @@ class TestPromptsKnobs:
         base_prompt = "A beautiful landscape"
         k = 2
         
-        with patch('pixelbliss.prompts.KnobSelector.select_single_variant_knob') as mock_select, \
+        with patch('pixelbliss.prompts.KnobSelector.select_variant_knobs') as mock_select, \
              patch('pixelbliss.prompts.KnobSelector.get_avoid_list') as mock_avoid, \
              patch('pixelbliss.prompts.get_logger') as mock_get_logger:
             
@@ -174,9 +164,7 @@ class TestPromptsKnobsIntegration:
         """Test complete workflow with knobs system."""
         config = Config(
             prompt_generation=PromptGeneration(
-                provider="dummy",
-                use_knobs=True,
-                variant_strategy="single"
+                provider="dummy"
             )
         )
         
@@ -196,9 +184,7 @@ class TestPromptsKnobsIntegration:
         """Test that knobs system produces varied results."""
         config = Config(
             prompt_generation=PromptGeneration(
-                provider="dummy",
-                use_knobs=True,
-                variant_strategy="single"
+                provider="dummy"
             )
         )
         

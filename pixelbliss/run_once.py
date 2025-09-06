@@ -12,65 +12,6 @@ from .config import Config
 from .logging_config import get_logger, ProgressLogger
 import pytz
 
-def generate_theme_hint(cfg: Config, progress_logger=None) -> str:
-    """
-    Generate a theme hint using trending topics analysis or fallback to curated themes.
-    
-    Args:
-        cfg: Configuration object containing trending themes settings.
-        progress_logger: Optional progress logger for tracking.
-    
-    Returns:
-        str: A theme hint for the knobs system.
-    """
-    if cfg.trending_themes.enabled:
-        try:
-            from .prompt_engine.trending_topics import TrendingTopicsProvider
-            
-            provider = TrendingTopicsProvider(
-                model=cfg.trending_themes.model
-            )
-            
-            if cfg.trending_themes.async_enabled:
-                # For sync context, we'll use the sync method
-                return provider.get_trending_theme(progress_logger)
-            else:
-                return provider.get_trending_theme(progress_logger)
-                
-        except Exception as e:
-            logger = get_logger('theme_generation')
-            logger.error(f"Trending topics failed: {e}")
-            if progress_logger:
-                progress_logger.warning("Trending topics failed, using fallback themes")
-            
-            if not cfg.trending_themes.fallback_enabled:
-                raise e
-    
-    # Fallback to curated theme hints
-    themes = [
-        # keep the broad, content-agnostic originals
-        "abstract", "nature", "cosmic", "geometric", "organic", "crystalline", "flow",
-
-        # concept & idea themes (not style/mood)
-        "balance", "harmony", "unity", "duality", "symmetry", "asymmetry",
-        "cycles", "growth", "renewal", "emergence", "evolution",
-        "interconnection", "networks", "continuum", "wholeness", "infinity",
-        "order and randomness", "pattern", "repetition", "rhythm",
-
-        # math & structure (conceptual domains, not aesthetics)
-        "fractal", "spirals", "tessellation", "lattice", "grid",
-        "waveforms", "fields", "orbits", "constellations", "topography", "cartography",
-
-        # natural domains (generic, non-specific)
-        "elemental", "terrestrial", "celestial", "aquatic", "mineral",
-        "botanical", "aerial", "seasonal", "weather",
-
-        # metaphor & abstract idea spaces
-        "journey", "thresholds", "liminality", "sanctuary", "play",
-        "curiosity", "wonder", "stillness", "openness", "simplicity",
-        "order and flow", "cause and effect", "microcosm and macrocosm"
-    ]
-    return random.choice(themes)
 
 async def generate_theme_hint_async(cfg: Config, progress_logger=None) -> str:
     """
@@ -128,18 +69,6 @@ async def generate_theme_hint_async(cfg: Config, progress_logger=None) -> str:
     ]
     return random.choice(themes)
 
-def select_category(cfg: Config) -> str:
-    """
-    Select a category/theme for prompt generation.
-    This is a compatibility function that wraps generate_theme_hint().
-    
-    Args:
-        cfg: Configuration object containing trending themes settings.
-        
-    Returns:
-        str: A selected theme/category.
-    """
-    return generate_theme_hint(cfg)
 
 def try_in_order(prompt: str, provider_names: List[str], models: List[str], retries: int) -> Optional[ImageResult]:
     """
@@ -395,35 +324,6 @@ async def run_all_variants(variant_prompts: List[str], cfg: Config, progress_log
     logger.info(f"Parallel generation completed: {len(candidates)} total candidates, {failed_variants} failed variants")
     return candidates
 
-def generate_images_sequential(variant_prompts: List[str], cfg: Config) -> List[Dict[str, Any]]:
-    """
-    Generate images for all prompt variants sequentially (fallback method).
-    
-    Args:
-        variant_prompts: List of prompt variants to generate images for.
-        cfg: Configuration object containing provider and model settings.
-        
-    Returns:
-        List[Dict[str, Any]]: List of all successful image candidates.
-    """
-    candidates = []
-    for vp in variant_prompts:
-        # Loop through models by index, trying FAL first then Replicate fallback for same index
-        for i in range(len(cfg.image_generation.model_fal)):
-            # Try FAL model at index i
-            fal_model = cfg.image_generation.model_fal[i]
-            imgres = providers.base.generate_image(vp, cfg.image_generation.provider_order[0], fal_model)
-
-            # If FAL failed and we have a corresponding Replicate model, try it
-            if not imgres and i < len(cfg.image_generation.model_replicate):
-                replicate_model = cfg.image_generation.model_replicate[i]
-                imgres = providers.base.generate_image(vp, cfg.image_generation.provider_order[1], replicate_model)
-
-            # Add image candidate if available
-            if imgres:
-                candidates.append({**imgres, "prompt": vp})
-    
-    return candidates
 
 async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = None, progress_logger: Optional[ProgressLogger] = None):
     """
@@ -462,15 +362,39 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         # Step 1: Load configuration
         progress_logger.step("Loading configuration")
         cfg = config.load_config()
-        logger.debug(f"Configuration loaded, async_enabled={cfg.image_generation.async_enabled}")
+        logger.debug("Configuration loaded")
         progress_logger.success("Configuration loaded successfully")
 
         # Step 2: Generate theme hint
         progress_logger.step("Generating theme hint")
-        if cfg.trending_themes.enabled and cfg.trending_themes.async_enabled:
+        if cfg.trending_themes.enabled:
             theme_hint = await generate_theme_hint_async(cfg, progress_logger)
         else:
-            theme_hint = generate_theme_hint(cfg, progress_logger)
+            # Fallback to curated theme hints
+            themes = [
+                # keep the broad, content-agnostic originals
+                "abstract", "nature", "cosmic", "geometric", "organic", "crystalline", "flow",
+
+                # concept & idea themes (not style/mood)
+                "balance", "harmony", "unity", "duality", "symmetry", "asymmetry",
+                "cycles", "growth", "renewal", "emergence", "evolution",
+                "interconnection", "networks", "continuum", "wholeness", "infinity",
+                "order and randomness", "pattern", "repetition", "rhythm",
+
+                # math & structure (conceptual domains, not aesthetics)
+                "fractal", "spirals", "tessellation", "lattice", "grid",
+                "waveforms", "fields", "orbits", "constellations", "topography", "cartography",
+
+                # natural domains (generic, non-specific)
+                "elemental", "terrestrial", "celestial", "aquatic", "mineral",
+                "botanical", "aerial", "seasonal", "weather",
+
+                # metaphor & abstract idea spaces
+                "journey", "thresholds", "liminality", "sanctuary", "play",
+                "curiosity", "wonder", "stillness", "openness", "simplicity",
+                "order and flow", "cause and effect", "microcosm and macrocosm"
+            ]
+            theme_hint = random.choice(themes)
         logger.info(f"Generated theme hint: {theme_hint}")
         progress_logger.success(f"Theme hint generated", f"{theme_hint}")
 
@@ -482,7 +406,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         logger.info(f"Base prompt generated: {base_prompt[:100]}...")
         
         # Generate variant prompts with detailed logging
-        logger.info(f"Starting prompt variant generation (async: {cfg.prompt_generation.async_enabled})")
+        logger.info("Starting prompt variant generation (async enabled)")
         if cfg.prompt_generation.async_enabled:
             variant_prompts = await prompts.make_variants_from_base_async(base_prompt, cfg.prompt_generation.num_prompt_variants, cfg, progress_logger)
         else:
@@ -495,14 +419,10 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
 
         # Step 4: Generate images
         progress_logger.step("Generating images")
-        logger.info(f"Starting image generation (async: {cfg.image_generation.async_enabled})")
+        logger.info("Starting image generation (async enabled)")
         
-        if cfg.image_generation.async_enabled:
-            progress_logger.substep("Using parallel generation")
-            candidates = await run_all_variants(variant_prompts, cfg, progress_logger)
-        else:
-            progress_logger.substep("Using sequential generation")
-            candidates = generate_images_sequential(variant_prompts, cfg)
+        progress_logger.substep("Using parallel generation")
+        candidates = await run_all_variants(variant_prompts, cfg, progress_logger)
 
         logger.info(f"Generated {len(candidates)} image candidates")
         if not candidates:
@@ -692,18 +612,8 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         # Add aesthetic scores
         if scored:
             progress_logger.substep("Computing aesthetic scores")
-            if cfg.image_generation.async_enabled:
-                logger.debug("Using parallel aesthetic scoring")
-                scored = await aesthetic.score_candidates_parallel(scored, cfg, progress_logger)
-            else:
-                logger.debug("Using sequential aesthetic scoring")
-                for c in scored:
-                    image_url = c.get("image_url")
-                    if image_url:
-                        a = aesthetic.aesthetic(image_url, cfg)
-                    else:
-                        a = 0.5
-                    c["aesthetic"] = a
+            logger.debug("Using parallel aesthetic scoring")
+            scored = await aesthetic.score_candidates_parallel(scored, cfg, progress_logger)
             
             # Log aesthetic scores
             for i, c in enumerate(scored):

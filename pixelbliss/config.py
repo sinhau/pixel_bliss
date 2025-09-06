@@ -10,22 +10,18 @@ class PromptGeneration(BaseModel):
     num_prompt_variants: int = 3
     async_enabled: bool = True
     max_concurrency: Optional[int] = None  # None means no limit, defaults to number of variants
-    use_knobs: bool = True  # Use new knobs system instead of legacy categories/art_styles
-    variant_strategy: str = "single"  # "single" = vary one knob, "multiple" = vary all knobs
 
 class TrendingThemes(BaseModel):
     enabled: bool = True
     provider: str = "openai"
     model: str = "gpt-5"
     fallback_enabled: bool = True
-    async_enabled: bool = True
 
 class ImageGeneration(BaseModel):
     provider_order: List[str] = ["fal", "replicate"]
     model_fal: List[str] = ["black-forest-labs/flux-1.1"]
     model_replicate: List[str] = ["black-forest-labs/flux"]
     retries_per_image: int = 2
-    async_enabled: bool = True
     max_concurrency: Optional[int] = None  # None means no limit, defaults to number of variants
 
 class Ranking(BaseModel):
