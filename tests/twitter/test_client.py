@@ -7,7 +7,8 @@ from pixelbliss.twitter.client import (
     set_alt_text,
     create_tweet,
     get_user_info,
-    get_tweet_info
+    get_tweet_info,
+    _upload_media_v2
 )
 
 
@@ -84,36 +85,186 @@ class TestGetClient:
         assert result == mock_client_instance
 
 
+class TestUploadMediaV2:
+    """Test cases for _upload_media_v2 function."""
+
+    @patch('pixelbliss.twitter.client.requests.post')
+    @patch('pixelbliss.twitter.client.mimetypes.guess_type')
+    @patch('builtins.open', create=True)
+    def test_upload_media_v2_success(self, mock_open, mock_guess_type, mock_post):
+        """Test successful v2 media upload."""
+        # Mock file operations
+        mock_file = Mock()
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        # Mock MIME type detection
+        mock_guess_type.return_value = ('image/jpeg', None)
+        
+        # Mock successful API response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'data': {
+                'id': '123456789'
+            }
+        }
+        mock_post.return_value = mock_response
+        
+        result = _upload_media_v2('/path/to/image.jpg', 'test_access_token')
+        
+        # Verify the request was made correctly
+        mock_post.assert_called_once_with(
+            'https://api.x.com/2/media/upload',
+            files={'media': ('image.jpg', mock_file, 'image/jpeg')},
+            data={
+                'media_category': 'tweet_image',
+                'media_type': 'image/jpeg'
+            },
+            headers={'Authorization': 'Bearer test_access_token'}
+        )
+        
+        assert result == '123456789'
+
+    @patch('pixelbliss.twitter.client.requests.post')
+    @patch('pixelbliss.twitter.client.mimetypes.guess_type')
+    @patch('builtins.open', create=True)
+    def test_upload_media_v2_api_error(self, mock_open, mock_guess_type, mock_post):
+        """Test v2 media upload with API error."""
+        # Mock file operations
+        mock_file = Mock()
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        # Mock MIME type detection
+        mock_guess_type.return_value = ('image/png', None)
+        
+        # Mock API error response
+        mock_response = Mock()
+        mock_response.status_code = 400
+        mock_response.text = 'Bad Request'
+        mock_post.return_value = mock_response
+        
+        with pytest.raises(Exception, match="v2 API upload failed with status 400: Bad Request"):
+            _upload_media_v2('/path/to/image.png', 'test_access_token')
+
+    @patch('pixelbliss.twitter.client.requests.post')
+    @patch('pixelbliss.twitter.client.mimetypes.guess_type')
+    @patch('builtins.open', create=True)
+    def test_upload_media_v2_unexpected_response(self, mock_open, mock_guess_type, mock_post):
+        """Test v2 media upload with unexpected response format."""
+        # Mock file operations
+        mock_file = Mock()
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        # Mock MIME type detection
+        mock_guess_type.return_value = ('image/gif', None)
+        
+        # Mock unexpected API response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'unexpected': 'format'}
+        mock_post.return_value = mock_response
+        
+        with pytest.raises(Exception, match="Unexpected v2 API response format"):
+            _upload_media_v2('/path/to/image.gif', 'test_access_token')
+
+    @patch('pixelbliss.twitter.client.requests.post')
+    @patch('pixelbliss.twitter.client.mimetypes.guess_type')
+    @patch('builtins.open', create=True)
+    def test_upload_media_v2_unknown_mime_type(self, mock_open, mock_guess_type, mock_post):
+        """Test v2 media upload with unknown MIME type."""
+        # Mock file operations
+        mock_file = Mock()
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        # Mock MIME type detection returning None (unknown type)
+        mock_guess_type.return_value = (None, None)
+        
+        # Mock successful API response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'data': {
+                'id': '123456789'
+            }
+        }
+        mock_post.return_value = mock_response
+        
+        result = _upload_media_v2('/path/to/unknown.file', 'test_access_token')
+        
+        # Verify the request was made with fallback MIME type
+        mock_post.assert_called_once_with(
+            'https://api.x.com/2/media/upload',
+            files={'media': ('unknown.file', mock_file, 'application/octet-stream')},
+            data={
+                'media_category': 'tweet_image',
+                'media_type': 'application/octet-stream'
+            },
+            headers={'Authorization': 'Bearer test_access_token'}
+        )
+        
+        assert result == '123456789'
+
+    @patch('pixelbliss.twitter.client.requests.post')
+    @patch('pixelbliss.twitter.client.mimetypes.guess_type')
+    @patch('builtins.open', create=True)
+    def test_upload_media_v2_non_image_file(self, mock_open, mock_guess_type, mock_post):
+        """Test v2 media upload with non-image file type."""
+        # Mock file operations
+        mock_file = Mock()
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        # Mock MIME type detection for non-image file
+        mock_guess_type.return_value = ('text/plain', None)
+        
+        # Mock successful API response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'data': {
+                'id': '123456789'
+            }
+        }
+        mock_post.return_value = mock_response
+        
+        result = _upload_media_v2('/path/to/document.txt', 'test_access_token')
+        
+        # Verify the request was made with fallback media category for non-image
+        mock_post.assert_called_once_with(
+            'https://api.x.com/2/media/upload',
+            files={'media': ('document.txt', mock_file, 'text/plain')},
+            data={
+                'media_category': 'tweet_image',  # Fallback category
+                'media_type': 'text/plain'
+            },
+            headers={'Authorization': 'Bearer test_access_token'}
+        )
+        
+        assert result == '123456789'
+
+
 class TestUploadMedia:
     """Test cases for upload_media function."""
 
-    @patch('pixelbliss.twitter.client.get_client')
-    def test_upload_media_single_file_v2_success(self, mock_get_client):
+    @patch.dict(os.environ, {'X_ACCESS_TOKEN': 'test_access_token'})
+    @patch('pixelbliss.twitter.client._upload_media_v2')
+    def test_upload_media_single_file_v2_success(self, mock_upload_v2):
         """Test uploading a single media file using v2 API successfully."""
-        # Mock client and media upload
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
-        
-        mock_media = Mock()
-        mock_media.media_id = 123456789
-        mock_client.media_upload.return_value = mock_media
+        # Mock v2 upload success
+        mock_upload_v2.return_value = "123456789"
         
         result = upload_media(["/path/to/image.jpg"])
         
-        mock_get_client.assert_called_once()
-        mock_client.media_upload.assert_called_once_with(filename="/path/to/image.jpg")
-        
+        mock_upload_v2.assert_called_once_with("/path/to/image.jpg", "test_access_token")
         assert result == ["123456789"]
 
-    @patch('pixelbliss.twitter.client.get_client')
+    @patch.dict(os.environ, {'X_ACCESS_TOKEN': 'test_access_token'})
+    @patch('pixelbliss.twitter.client._upload_media_v2')
     @patch('pixelbliss.twitter.client.tweepy.OAuth1UserHandler')
     @patch('pixelbliss.twitter.client.tweepy.API')
-    def test_upload_media_single_file_v2_fallback(self, mock_api_class, mock_oauth, mock_get_client):
+    def test_upload_media_single_file_v2_fallback(self, mock_api_class, mock_oauth, mock_upload_v2):
         """Test uploading a single media file with v2 failure and v1.1 fallback."""
-        # Mock v2 client failure
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
-        mock_client.media_upload.side_effect = Exception("v2 upload failed")
+        # Mock v2 upload failure
+        mock_upload_v2.side_effect = Exception("v2 upload failed")
         
         # Mock v1.1 fallback
         mock_auth = Mock()
@@ -129,8 +280,7 @@ class TestUploadMedia:
         result = upload_media(["/path/to/image.jpg"])
         
         # Verify v2 was tried first
-        mock_get_client.assert_called_once()
-        mock_client.media_upload.assert_called_once_with(filename="/path/to/image.jpg")
+        mock_upload_v2.assert_called_once_with("/path/to/image.jpg", "test_access_token")
         
         # Verify v1.1 fallback was used
         mock_oauth.assert_called_once()
@@ -139,45 +289,36 @@ class TestUploadMedia:
         
         assert result == ["123456789"]
 
-    @patch('pixelbliss.twitter.client.get_client')
-    def test_upload_media_multiple_files(self, mock_get_client):
+    @patch.dict(os.environ, {'X_ACCESS_TOKEN': 'test_access_token'})
+    @patch('pixelbliss.twitter.client._upload_media_v2')
+    def test_upload_media_multiple_files(self, mock_upload_v2):
         """Test uploading multiple media files."""
-        # Mock client
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
-        
-        # Mock multiple media uploads
-        mock_media1 = Mock()
-        mock_media1.media_id = 123456789
-        mock_media2 = Mock()
-        mock_media2.media_id = 987654321
-        mock_media3 = Mock()
-        mock_media3.media_id = 555666777
-        
-        mock_client.media_upload.side_effect = [mock_media1, mock_media2, mock_media3]
+        # Mock multiple v2 uploads
+        mock_upload_v2.side_effect = ["123456789", "987654321", "555666777"]
         
         paths = ["/path/to/image1.jpg", "/path/to/image2.png", "/path/to/image3.gif"]
         result = upload_media(paths)
         
-        # Verify all files were uploaded
-        assert mock_client.media_upload.call_count == 3
-        mock_client.media_upload.assert_any_call(filename="/path/to/image1.jpg")
-        mock_client.media_upload.assert_any_call(filename="/path/to/image2.png")
-        mock_client.media_upload.assert_any_call(filename="/path/to/image3.gif")
+        # Verify all files were uploaded via v2
+        assert mock_upload_v2.call_count == 3
+        mock_upload_v2.assert_any_call("/path/to/image1.jpg", "test_access_token")
+        mock_upload_v2.assert_any_call("/path/to/image2.png", "test_access_token")
+        mock_upload_v2.assert_any_call("/path/to/image3.gif", "test_access_token")
         
         assert result == ["123456789", "987654321", "555666777"]
 
-    @patch('pixelbliss.twitter.client.get_client')
-    def test_upload_media_empty_list(self, mock_get_client):
+    def test_upload_media_empty_list(self):
         """Test uploading with empty file list."""
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
-        
         result = upload_media([])
         
-        # Should not call media_upload for empty list
-        mock_client.media_upload.assert_not_called()
+        # Should return empty list for empty input
         assert result == []
+
+    def test_upload_media_missing_access_token(self):
+        """Test upload fails when X_ACCESS_TOKEN is not set."""
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(Exception, match="X_ACCESS_TOKEN environment variable not set"):
+                upload_media(["/path/to/image.jpg"])
 
 
 class TestSetAltText:
@@ -266,7 +407,7 @@ class TestCreateTweet:
         mock_get_client.assert_called_once()
         mock_client.create_tweet.assert_called_once_with(
             text="Check out this amazing image!",
-            media_ids=[123456789, 987654321]
+            media_ids=["123456789", "987654321"]
         )
         assert result == 'tweet_123456789'
 
@@ -283,7 +424,7 @@ class TestCreateTweet:
         
         mock_client.create_tweet.assert_called_once_with(
             text="Single image tweet",
-            media_ids=[123456789]
+            media_ids=["123456789"]
         )
         assert result == 'tweet_987654321'
 
@@ -319,7 +460,7 @@ class TestCreateTweet:
         
         mock_client.create_tweet.assert_called_once_with(
             text="Alternative format tweet",
-            media_ids=[123456789]
+            media_ids=["123456789"]
         )
         assert result == 'tweet_alt_format'
 

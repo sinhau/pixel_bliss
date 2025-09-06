@@ -1,5 +1,7 @@
 import os
 import tweepy
+import requests
+import mimetypes
 from typing import List, Optional
 from ..imaging.compression import prepare_for_twitter_upload
 from ..logging_config import get_logger
@@ -19,6 +21,71 @@ def get_client():
         access_token_secret=os.getenv("X_ACCESS_TOKEN_SECRET"),
         wait_on_rate_limit=True
     )
+
+def _upload_media_v2(file_path: str, access_token: str) -> str:
+    """
+    Upload media using X API v2 directly with HTTP requests.
+    
+    Args:
+        file_path: Path to the media file to upload.
+        access_token: OAuth 2.0 access token.
+        
+    Returns:
+        str: Media ID string from X API.
+        
+    Raises:
+        Exception: If upload fails.
+    """
+    logger = get_logger('twitter.upload')
+    
+    # Determine media type and category
+    mime_type, _ = mimetypes.guess_type(file_path)
+    if not mime_type:
+        mime_type = 'application/octet-stream'
+    
+    # Set media category based on file type
+    if mime_type.startswith('image/'):
+        media_category = 'tweet_image'
+    else:
+        media_category = 'tweet_image'  # Default fallback
+    
+    logger.info(f"    • File: {file_path}")
+    logger.info(f"    • MIME type: {mime_type}")
+    logger.info(f"    • Media category: {media_category}")
+    
+    # Prepare the multipart form data
+    with open(file_path, 'rb') as file:
+        files = {
+            'media': (os.path.basename(file_path), file, mime_type)
+        }
+        
+        data = {
+            'media_category': media_category,
+            'media_type': mime_type
+        }
+        
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        
+        # Make the v2 API request
+        response = requests.post(
+            'https://api.x.com/2/media/upload',
+            files=files,
+            data=data,
+            headers=headers
+        )
+    
+    if response.status_code == 200:
+        result = response.json()
+        if 'data' in result and 'id' in result['data']:
+            media_id = str(result['data']['id'])
+            logger.info(f"    ✓ v2 API upload successful - Media ID: {media_id}")
+            return media_id
+        else:
+            raise Exception(f"Unexpected v2 API response format: {result}")
+    else:
+        raise Exception(f"v2 API upload failed with status {response.status_code}: {response.text}")
 
 def upload_media(paths: List[str]) -> List[str]:
     """
@@ -47,18 +114,19 @@ def upload_media(paths: List[str]) -> List[str]:
         logger.warning("No processed paths available for upload")
         return []
     
-    # Use OAuth 2.0 client for v2 media upload
-    client = get_client()
+    # Get access token for v2 API
+    access_token = os.getenv("X_ACCESS_TOKEN")
+    if not access_token:
+        raise Exception("X_ACCESS_TOKEN environment variable not set")
+    
     media_ids = []
     
     for i, path in enumerate(processed_paths, 1):
         logger.info(f"  • Uploading file {i}/{len(processed_paths)}: {path}")
         try:
-            # Upload media using v2 API
-            media = client.media_upload(filename=path)
-            media_id = str(media.media_id)
+            # Try v2 API upload first
+            media_id = _upload_media_v2(path, access_token)
             media_ids.append(media_id)
-            logger.info(f"    ✓ Upload successful - Media ID: {media_id}")
         except Exception as e:
             logger.warning(f"    ⚠ v2 API upload failed: {e}, trying v1.1 fallback")
             # If v2 upload fails, fallback to v1.1 for compatibility
@@ -138,14 +206,14 @@ def create_tweet(text: str, media_ids: List[str]) -> str:
     
     client = get_client()
     
-    # Convert media_ids to integers as required by v2 API
-    media_ids_int = [int(media_id) for media_id in media_ids] if media_ids else None
-    logger.info(f"  • Media IDs (integers): {media_ids_int}")
+    # v2 API requires media_ids as strings, not integers
+    # Keep media_ids as strings as per v2 API specification
+    logger.info(f"  • Using media IDs as strings for v2 API: {media_ids}")
     
     logger.info("  • Sending tweet to Twitter API v2...")
     
-    # Create tweet using v2 API endpoint
-    response = client.create_tweet(text=text, media_ids=media_ids_int)
+    # Create tweet using v2 API endpoint with string media IDs
+    response = client.create_tweet(text=text, media_ids=media_ids if media_ids else None)
     
     # v2 API returns response in different format
     if hasattr(response, 'data') and response.data:
