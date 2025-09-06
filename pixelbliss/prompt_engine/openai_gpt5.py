@@ -3,9 +3,20 @@ import random
 import asyncio
 from typing import List, Optional, Dict
 from openai import OpenAI, AsyncOpenAI
+from pydantic import BaseModel, Field
 from .base import PromptProvider
 from .knobs import KnobSelector
 from ..logging_config import get_logger
+
+class TwitterBlurb(BaseModel):
+    """Structured response model for generating twitter blurb"""
+    blurb: str = Field(
+        description="A short philosophical quote, haiku, or poem, less than 200 characters, that poetically captions the theme and generated image"
+    )
+    detailed_description_and_reasoning: str = Field(
+        description="Brief explanation and reasoning of how blurb was generated"
+    )
+
 
 class OpenAIGPT5Provider(PromptProvider):
     """OpenAI GPT-5 implementation of the PromptProvider protocol."""
@@ -332,7 +343,7 @@ class OpenAIGPT5Provider(PromptProvider):
 
         logger.debug(f"[openai] Sending vision request to {self.model}")
         try:
-            response = self.client.responses.create(
+            response = self.client.responses.parse(
                 model=self.model,
                 instructions=system_prompt,
                 input=[
@@ -343,14 +354,15 @@ class OpenAIGPT5Provider(PromptProvider):
                             {
                                 "type": "input_image",
                                 "image_url": f"data:image/{image_format};base64,{base64_image}",
-                                "detail": "high"
+                                "detail": "low"
                             }
                         ]
                     }
                 ],
+                text_format=TwitterBlurb,
             )
             
-            blurb = response.choices[0].message.content.strip()
+            blurb = response.output_parsed.blurb.strip()
             
             logger.info(f"[openai] Vision blurb generated successfully (len={len(blurb)})")
             return blurb
