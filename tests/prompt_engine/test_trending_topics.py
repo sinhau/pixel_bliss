@@ -27,7 +27,13 @@ class TestTrendingTopicsProvider:
     @pytest.mark.asyncio
     async def test_get_trending_theme_async_success(self):
         """Test successful async trending theme generation."""
-        # Mock the async client directly with AsyncMock
+        # Mock phase 1: web search (create)
+        mock_research_response = Mock()
+        mock_research_response.choices = [Mock()]
+        mock_research_response.choices[0].message.content = "- Trend 1\n- Trend 2"
+        self.provider.async_client.chat.completions.create = AsyncMock(return_value=mock_research_response)
+
+        # Mock phase 2: structured parse
         mock_response = Mock()
         mock_response.choices = [Mock()]
         mock_theme_recommendation = Mock()
@@ -45,7 +51,12 @@ class TestTrendingTopicsProvider:
     @pytest.mark.asyncio
     async def test_get_trending_theme_async_failure_propagates(self):
         """Test that async API failures propagate as expected."""
-        # Mock the async client to raise exception
+        # Mock phase 1 succeed
+        mock_research_response = Mock()
+        mock_research_response.choices = [Mock()]
+        mock_research_response.choices[0].message.content = "- Trend A\n- Trend B"
+        self.provider.async_client.chat.completions.create = AsyncMock(return_value=mock_research_response)
+        # Mock phase 2 raise
         self.provider.async_client.chat.completions.parse = AsyncMock(side_effect=Exception("API Error"))
         
         # Test - should raise the exception since there's no fallback handling
@@ -55,7 +66,13 @@ class TestTrendingTopicsProvider:
     @pytest.mark.asyncio
     async def test_get_trending_theme_async_with_cleanup(self):
         """Test async theme generation with text cleanup."""
-        # Mock the async client directly
+        # Mock phase 1: web search (create)
+        mock_research_response = Mock()
+        mock_research_response.choices = [Mock()]
+        mock_research_response.choices[0].message.content = "- Spring blossoms\n- Seasonal festivals"
+        self.provider.async_client.chat.completions.create = AsyncMock(return_value=mock_research_response)
+
+        # Mock phase 2: structured parse
         mock_response = Mock()
         mock_response.choices = [Mock()]
         mock_theme_recommendation = Mock()
@@ -75,7 +92,13 @@ class TestTrendingTopicsProvider:
         # Mock progress logger
         mock_progress_logger = Mock()
         
-        # Mock successful API call
+        # Phase 1
+        mock_research_response = Mock()
+        mock_research_response.choices = [Mock()]
+        mock_research_response.choices[0].message.content = "- Nature\n- Ethereal light"
+        self.provider.async_client.chat.completions.create = AsyncMock(return_value=mock_research_response)
+
+        # Phase 2
         mock_response = Mock()
         mock_response.choices = [Mock()]
         mock_theme_recommendation = Mock()
@@ -102,7 +125,13 @@ class TestTrendingTopicsProvider:
     @pytest.mark.asyncio
     async def test_progress_logger_with_failure_async(self):
         """Test async progress logger with API failure."""
-        # Mock the async client to raise exception
+        # Phase 1 succeed
+        mock_research_response = Mock()
+        mock_research_response.choices = [Mock()]
+        mock_research_response.choices[0].message.content = "- Item 1\n- Item 2"
+        self.provider.async_client.chat.completions.create = AsyncMock(return_value=mock_research_response)
+
+        # Phase 2 fails
         self.provider.async_client.chat.completions.parse = AsyncMock(side_effect=Exception("API Error"))
         
         # Mock progress logger
@@ -118,7 +147,13 @@ class TestTrendingTopicsProvider:
     @pytest.mark.asyncio
     async def test_api_parameters_async(self):
         """Test that async API is called with correct parameters."""
-        # Mock the async client directly
+        # Phase 1 (create) mock
+        mock_research_response = Mock()
+        mock_research_response.choices = [Mock()]
+        mock_research_response.choices[0].message.content = "- Key trend 1\n- Key trend 2"
+        self.provider.async_client.chat.completions.create = AsyncMock(return_value=mock_research_response)
+
+        # Phase 2 (parse) mock
         mock_response = Mock()
         mock_response.choices = [Mock()]
         mock_theme_recommendation = Mock()
@@ -130,15 +165,24 @@ class TestTrendingTopicsProvider:
         # Test
         await self.provider.get_trending_theme_async()
         
-        # Verify API parameters (based on your simplified implementation)
-        call_args = self.provider.async_client.chat.completions.parse.call_args
-        
-        assert call_args[1]['model'] == 'gpt-5'
-        assert len(call_args[1]['messages']) == 2
-        assert call_args[1]['tools'] == [{"type": "web_search"}]
-        assert 'response_format' in call_args[1]  # Verify structured outputs are used
+        # Verify API parameters for phase 1 (web_search)
+        call_args_create = self.provider.async_client.chat.completions.create.call_args
+        assert call_args_create[1]['model'] == 'gpt-5'
+        assert len(call_args_create[1]['messages']) == 2
+        assert call_args_create[1]['tools'] == [{"type": "web_search"}]
+        messages_create = call_args_create[1]['messages']
+        assert messages_create[0]['role'] == 'system'
+        assert messages_create[1]['role'] == 'user'
+
+        # Verify API parameters for phase 2 (structured outputs)
+        call_args_parse = self.provider.async_client.chat.completions.parse.call_args
+        assert call_args_parse[1]['model'] == 'gpt-5'
+        assert len(call_args_parse[1]['messages']) == 2
+        assert 'response_format' in call_args_parse[1]  # Verify structured outputs are used
+        # Ensure we don't pass tools to parse phase
+        assert 'tools' not in call_args_parse[1]
         
         # Verify message structure
-        messages = call_args[1]['messages']
+        messages = call_args_parse[1]['messages']
         assert messages[0]['role'] == 'system'
         assert messages[1]['role'] == 'user'

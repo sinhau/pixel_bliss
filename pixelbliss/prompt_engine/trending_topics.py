@@ -92,23 +92,51 @@ class TrendingTopicsProvider:
         
         start_time = time.time()
         
-        # Use web search enabled model with structured outputs
-        response = await self.async_client.chat.completions.parse(
+        # Phase 1: Use built-in web_search tool to gather current trends (no auto-parsing here)
+        research_response = await self.async_client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {
+                    "role": "user",
+                    "content": (
+                        user_prompt
+                        + "\n\nWhen you've completed your web research, provide a concise summary of key trends and influences "
+                        "you found (bullet points are fine). Do not provide the final theme yet."
+                    ),
+                },
             ],
-            # Enable web search if available
             tools=[{"type": "web_search"}],
-            # Use structured outputs
-            response_format=ThemeRecommendation
+        )
+        research_summary = research_response.choices[0].message.content or ""
+        
+        # Phase 2: Convert research summary into a structured recommendation (no non-function tools)
+        structured_response = await self.async_client.chat.completions.parse(
+            model=self.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You convert web research into a single high-quality wallpaper theme recommendation. "
+                        "Return ONLY a structured object that matches the provided schema."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Here is the research summary of current trends:\n\n"
+                        f"{research_summary}\n\n"
+                        "Based on these findings, produce exactly one theme recommendation with a brief reasoning."
+                    ),
+                },
+            ],
+            response_format=ThemeRecommendation,
         )
         
         generation_time = time.time() - start_time
         
         # Parse the structured response
-        theme_recommendation = response.choices[0].message.parsed
+        theme_recommendation = structured_response.choices[0].message.parsed
         
         # Extract the theme (don't clean up since it can be 1-2 sentences)
         theme = theme_recommendation.theme.strip()
