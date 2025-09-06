@@ -40,21 +40,14 @@ class TestTrendingTopicsProvider:
         self.provider.async_client.chat.completions.create.assert_called_once()
     
     @pytest.mark.asyncio
-    async def test_get_trending_theme_async_failure_fallback(self):
-        """Test async fallback when trending theme generation fails."""
+    async def test_get_trending_theme_async_failure_propagates(self):
+        """Test that async API failures propagate as expected."""
         # Mock the async client to raise exception
-        self.provider.async_client.chat.completions.create.side_effect = Exception("API Error")
+        self.provider.async_client.chat.completions.create = AsyncMock(side_effect=Exception("API Error"))
         
-        # Test
-        theme = await self.provider.get_trending_theme_async()
-        
-        # Should return one of the fallback themes
-        fallback_themes = [
-            "aurora borealis", "cherry blossoms", "cosmic wonder", "minimalist zen",
-            "golden hour", "ocean waves", "mountain peaks", "forest mist",
-            "desert dunes", "city lights", "abstract flow", "geometric harmony"
-        ]
-        assert theme in fallback_themes
+        # Test - should raise the exception since there's no fallback handling
+        with pytest.raises(Exception, match="API Error"):
+            await self.provider.get_trending_theme_async()
     
     @pytest.mark.asyncio
     async def test_get_trending_theme_async_with_cleanup(self):
@@ -101,26 +94,17 @@ class TestTrendingTopicsProvider:
     async def test_progress_logger_with_failure_async(self):
         """Test async progress logger with API failure."""
         # Mock the async client to raise exception
-        self.provider.async_client.chat.completions.create.side_effect = Exception("API Error")
+        self.provider.async_client.chat.completions.create = AsyncMock(side_effect=Exception("API Error"))
         
         # Mock progress logger
         mock_progress_logger = Mock()
         
-        # Test
-        theme = await self.provider.get_trending_theme_async(mock_progress_logger)
+        # Test - should raise the exception since there's no fallback handling
+        with pytest.raises(Exception, match="API Error"):
+            await self.provider.get_trending_theme_async(mock_progress_logger)
         
-        # Should get fallback theme
-        fallback_themes = [
-            "aurora borealis", "cherry blossoms", "cosmic wonder", "minimalist zen",
-            "golden hour", "ocean waves", "mountain peaks", "forest mist",
-            "desert dunes", "city lights", "abstract flow", "geometric harmony"
-        ]
-        assert theme in fallback_themes
-        
-        # Verify warning was logged
-        mock_progress_logger.warning.assert_called_with(
-            "Trending theme failed, using fallback"
-        )
+        # Verify progress logger was called before the exception
+        mock_progress_logger.substep.assert_called_with("Fetching trending topics from web")
 
     @pytest.mark.asyncio
     async def test_api_parameters_async(self):
@@ -134,10 +118,14 @@ class TestTrendingTopicsProvider:
         # Test
         await self.provider.get_trending_theme_async()
         
-        # Verify API parameters
+        # Verify API parameters (based on your simplified implementation)
         call_args = self.provider.async_client.chat.completions.create.call_args
         
         assert call_args[1]['model'] == 'gpt-5'
-        assert call_args[1]['max_completion_tokens'] == 100
-        assert call_args[1]['temperature'] == 0.7
         assert len(call_args[1]['messages']) == 2
+        assert call_args[1]['tools'] == [{"type": "web_search"}]
+        
+        # Verify message structure
+        messages = call_args[1]['messages']
+        assert messages[0]['role'] == 'system'
+        assert messages[1]['role'] == 'user'
