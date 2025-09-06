@@ -92,8 +92,8 @@ class TrendingTopicsProvider:
         
         start_time = time.time()
         
-        # Phase 1: Use built-in web_search tool to gather current trends (no auto-parsing here)
-        research_response = await self.async_client.chat.completions.create(
+        # Phase 1: Use built-in web_search tool to gather current trends (Responses API supports web_search)
+        research_response = await self.async_client.responses.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -110,8 +110,8 @@ class TrendingTopicsProvider:
         )
         research_summary = research_response.choices[0].message.content or ""
         
-        # Phase 2: Convert research summary into a structured recommendation (no non-function tools)
-        structured_response = await self.async_client.chat.completions.parse(
+        # Phase 2: Convert research summary into a structured recommendation (Responses API with structured parsing)
+        structured_response = await self.async_client.responses.parse(
             model=self.model,
             messages=[
                 {
