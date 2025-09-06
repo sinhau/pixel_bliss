@@ -196,12 +196,21 @@ def make_twitter_blurb(theme: str, image_path: str, cfg: Config) -> str:
     logger = get_logger('prompts')
     provider = get_provider(cfg)
     
+    logger.info(f"Starting Twitter blurb generation (provider={getattr(cfg.prompt_generation, 'provider', 'unknown')}/{getattr(cfg.prompt_generation, 'model', 'n/a')})")
+    logger.debug(f"Blurb inputs | theme='{theme}' | image_path='{image_path}'")
+    
+    start_time = time.time()
     try:
         blurb = provider.make_twitter_blurb(theme, image_path)
-        logger.info(f"Twitter blurb generated: {blurb[:50]}...")
+        duration = time.time() - start_time
+        preview = blurb[:50] + "..." if len(blurb) > 50 else blurb
+        line_count = blurb.count('\\n') + 1 if blurb else 0
+        logger.info(f"Twitter blurb generated in {duration:.2f}s (len={len(blurb)}, lines={line_count}): {preview}")
         return blurb
     except Exception as e:
-        logger.warning(f"Twitter blurb generation failed: {e}")
+        duration = time.time() - start_time
+        logger.warning(f"Twitter blurb generation failed after {duration:.2f}s: {e}")
+        logger.debug("Full exception context for blurb generation failure", exc_info=True)
         return ""  # Graceful fallback to empty string
 
 async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config, progress_logger=None) -> list[str]:

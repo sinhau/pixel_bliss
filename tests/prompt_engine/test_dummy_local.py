@@ -51,3 +51,16 @@ class TestDummyLocalProvider:
         assert "Variation 2" in result[1]
         assert "tone_curve: low-key velvet deep" in result[1]
         assert "avoiding watermarks" in result[1]
+
+    def test_make_twitter_blurb_with_logging(self):
+        """Test make_twitter_blurb method with logging coverage."""
+        provider = DummyLocalProvider()
+        
+        # Test with a theme that will trigger debug logging
+        result = provider.make_twitter_blurb("nature", "/fake/image/path.jpg")
+        
+        assert isinstance(result, str)
+        assert len(result) > 0
+        assert "nature" in result
+        # Some blurbs have line breaks (haiku), others are single line
+        assert len(result) <= 280  # Should fit Twitter limit

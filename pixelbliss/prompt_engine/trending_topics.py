@@ -62,20 +62,6 @@ class TrendingTopicsProvider:
             "• Identify aesthetic themes that resonate with contemporary audiences\n"
             "• Focus on visually compelling subjects that translate well to wallpaper art\n"
             "• Balance trending relevance with timeless visual appeal\n\n"
-            
-            "THEME RECOMMENDATION CRITERIA:\n"
-            "• Must be visually rich and suitable for wallpaper generation\n"
-            "• Should reflect current cultural zeitgeist or seasonal relevance\n"
-            "• Avoid overly specific or commercial references\n"
-            "• Focus on concepts that inspire beautiful, contemplative imagery\n"
-            "• Consider global trends, not just regional ones\n\n"
-            
-            "EXAMPLES OF GOOD THEMES:\n"
-            "• 'Ethereal aurora borealis dancing across a starlit winter sky with vibrant green and purple hues' (during solar activity news)\n"
-            "• 'Delicate cherry blossoms in full bloom creating a dreamy pink canopy over a serene Japanese garden' (during spring season)\n"
-            "• 'Cosmic nebulae with swirling galaxies and distant stars in deep space blues and purples' (during space exploration news)\n"
-            "• 'Minimalist zen garden with smooth river stones and gentle bamboo shadows in soft earth tones' (during wellness trends)\n"
-            "• 'Golden hour sunlight filtering through misty forest trees creating warm amber and honey tones' (during photography trends)"
         )
         
         user_prompt = (
@@ -117,6 +103,7 @@ class TrendingTopicsProvider:
             model=self.model,
             instructions=(
                 "You convert web research into a single high-quality wallpaper theme recommendation. "
+                "Don't describe any aesthetic details, simply provide a concise description of the theme to guide the subject matter of the wallpaper. "
                 "Return ONLY a structured object that matches the provided schema."
             ),
             input=(
@@ -124,7 +111,7 @@ class TrendingTopicsProvider:
                 f"{research_summary}\n\n"
                 "Based on these findings, produce exactly one theme recommendation with a brief reasoning."
             ),
-            response_format=ThemeRecommendation,
+            text_format=ThemeRecommendation,
         )
         
         generation_time = time.time() - start_time

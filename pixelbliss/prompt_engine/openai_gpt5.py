@@ -5,6 +5,7 @@ from typing import List, Optional, Dict
 from openai import OpenAI, AsyncOpenAI
 from .base import PromptProvider
 from .knobs import KnobSelector
+from ..logging_config import get_logger
 
 class OpenAIGPT5Provider(PromptProvider):
     """OpenAI GPT-5 implementation of the PromptProvider protocol."""
@@ -264,11 +265,17 @@ class OpenAIGPT5Provider(PromptProvider):
         """
         import base64
         from pathlib import Path
+
+        logger = get_logger('prompt_engine.openai_gpt5')
+        logger.info(f"[openai] Generating twitter blurb (model={self.model}, theme='{theme}')")
+        logger.debug(f"[openai] Reading image at path: '{image_path}'")
         
         # Read and encode the image
         try:
             image_data = Path(image_path).read_bytes()
             base64_image = base64.b64encode(image_data).decode('utf-8')
+            image_size_kb = len(image_data) / 1024
+            logger.debug(f"[openai] Image loaded successfully (size={image_size_kb:.1f}KB)")
             
             # Determine image format
             image_format = "jpeg"
@@ -276,8 +283,11 @@ class OpenAIGPT5Provider(PromptProvider):
                 image_format = "png"
             elif image_path.lower().endswith('.webp'):
                 image_format = "webp"
+            
+            logger.debug(f"[openai] Using vision mode with {image_format} format")
                 
         except Exception as e:
+            logger.warning(f"[openai] Image reading failed, falling back to text-only: {e}")
             # Fallback to text-only generation if image reading fails
             return self._make_text_only_blurb(theme)
         
@@ -320,48 +330,37 @@ class OpenAIGPT5Provider(PromptProvider):
             f"of calm, wonder, and aesthetic pleasure as the visual itself. Keep it under 200 characters and make it feel like poetry."
         )
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user", 
-                    "content": [
-                        {"type": "text", "text": user_prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/{image_format};base64,{base64_image}",
-                                "detail": "low"  # Use low detail for faster processing and lower cost
+        logger.debug(f"[openai] Sending vision request to {self.model}")
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user", 
+                        "content": [
+                            {"type": "text", "text": user_prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/{image_format};base64,{base64_image}",
+                                    "detail": "low"  # Use low detail for faster processing and lower cost
+                                }
                             }
-                        }
-                    ]
-                }
-            ],
-            max_completion_tokens=100  # Keep it concise
-        )
-        
-        blurb = response.choices[0].message.content.strip()
-        
-        # Ensure it's under 280 characters (with some buffer for safety)
-        if len(blurb) > 250:
-            # Try to truncate at a natural break point
-            if '\n' in blurb:
-                lines = blurb.split('\n')
-                truncated = []
-                current_length = 0
-                for line in lines:
-                    if current_length + len(line) + 1 <= 250:  # +1 for newline
-                        truncated.append(line)
-                        current_length += len(line) + 1
-                    else:
-                        break
-                if truncated:
-                    blurb = '\n'.join(truncated)
-            else:
-                blurb = blurb[:247] + "..."
-        
-        return blurb
+                        ]
+                    }
+                ],
+                max_completion_tokens=100  # Keep it concise
+            )
+            
+            blurb = response.choices[0].message.content.strip()
+            
+            logger.info(f"[openai] Vision blurb generated successfully (len={len(blurb)})")
+            return blurb
+            
+        except Exception as e:
+            logger.warning(f"[openai] Vision API call failed, falling back to text-only: {e}")
+            return self._make_text_only_blurb(theme)
     
     def _make_text_only_blurb(self, theme: str) -> str:
         """
@@ -373,6 +372,9 @@ class OpenAIGPT5Provider(PromptProvider):
         Returns:
             str: Generated blurb based on theme only.
         """
+        logger = get_logger('prompt_engine.openai_gpt5')
+        logger.info(f"[openai] Generating text-only blurb fallback (model={self.model}, theme='{theme}')")
+        
         system_prompt = (
             "You are PixelBliss Poetry Master, creating short, beautiful text that complements aesthetic themes. "
             "Generate a concise, evocative blurb that captures the essence of the given theme."
@@ -383,16 +385,26 @@ class OpenAIGPT5Provider(PromptProvider):
             f"or very short poem that captures the essence of this theme. Keep it under 200 characters and make it feel like poetry."
         )
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            max_completion_tokens=100
-        )
-        
-        return response.choices[0].message.content.strip()
+        logger.debug(f"[openai] Sending text-only request to {self.model}")
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_completion_tokens=100
+            )
+            
+            blurb = response.choices[0].message.content.strip()
+            
+            logger.info(f"[openai] Text-only blurb generated successfully (len={len(blurb)})")
+            return blurb
+            
+        except Exception as e:
+            logger.error(f"[openai] Text-only blurb generation failed: {e}")
+            # Return a simple fallback based on theme
+            return f"In {theme}, we find beauty."
 
     async def make_variants_with_knobs_async(self, base_prompt: str, k: int, variant_knobs_list: List[Dict[str, str]], avoid_list: List[str] = None, max_concurrency: Optional[int] = None, progress_logger=None) -> List[str]:
         """

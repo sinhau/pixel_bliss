@@ -160,7 +160,7 @@ class TestTwitterBlurb:
     @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
     @patch('pathlib.Path.read_bytes')
     def test_openai_provider_character_limit_truncation(self, mock_read_bytes, mock_openai_class, mock_async_openai_class):
-        """Test that OpenAI provider truncates long responses."""
+        """Test that OpenAI provider returns the full response without truncation."""
         # Mock image file reading
         mock_read_bytes.return_value = b"fake_image_data"
         
@@ -178,23 +178,23 @@ class TestTwitterBlurb:
         provider = OpenAIGPT5Provider()
         
         blurb = provider.make_twitter_blurb(
-            self.theme, 
+            self.theme,
             "/fake/image/path.jpg"
         )
         
-        assert len(blurb) <= 250  # Should be truncated
-        assert blurb.endswith("...")  # Should have ellipsis
+        assert blurb == long_response.strip()  # Should return the full response (stripped)
+        assert len(blurb) == len(long_response.strip())  # Should not be truncated
 
     @patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI')
     @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
     @patch('pathlib.Path.read_bytes')
-    def test_openai_provider_multiline_truncation(self, mock_read_bytes, mock_openai_class, mock_async_openai_class):
-        """Test that OpenAI provider truncates multiline responses properly."""
+    def test_openai_provider_multiline_response(self, mock_read_bytes, mock_openai_class, mock_async_openai_class):
+        """Test that OpenAI provider handles multiline responses properly."""
         # Mock image file reading
         mock_read_bytes.return_value = b"fake_image_data"
         
-        # Mock a multiline response where some lines are too long
-        multiline_response = "Short line\nThis is a very long line that would exceed the character limit when combined with other lines and should be truncated properly\nAnother short line\nYet another line that makes it too long"
+        # Mock a multiline response
+        multiline_response = "Short line\nThis is a very long line that would exceed the character limit when combined with other lines\nAnother short line\nYet another line that makes it too long"
         
         mock_client = Mock()
         mock_response = Mock()
@@ -211,11 +211,11 @@ class TestTwitterBlurb:
             "/fake/image/path.jpg"
         )
         
-        assert len(blurb) <= 250
-        # Should preserve line structure when possible
-        if '\n' in blurb:
-            lines = blurb.split('\n')
-            assert len(lines) >= 1
+        assert blurb == multiline_response.strip()  # Should return the full response (stripped)
+        # Should preserve line structure
+        assert '\n' in blurb
+        lines = blurb.split('\n')
+        assert len(lines) == 4  # Should have all 4 lines
 
     def test_get_provider_with_openai_config(self):
         """Test that get_provider returns OpenAI provider for openai config."""

@@ -1,6 +1,7 @@
 import asyncio
 from typing import List, Optional, Dict
 from .base import PromptProvider
+from ..logging_config import get_logger
 
 class DummyLocalProvider(PromptProvider):
     """Dummy local implementation of the PromptProvider protocol for testing."""
@@ -70,6 +71,10 @@ class DummyLocalProvider(PromptProvider):
         Returns:
             str: Simple test blurb that complements the theme.
         """
+        logger = get_logger('prompt_engine.dummy_local')
+        logger.info(f"[dummy] Generating twitter blurb (theme='{theme}')")
+        logger.debug(f"[dummy] Image path provided: '{image_path}' (unused in dummy mode)")
+        
         # Simple template-based blurbs for testing
         blurbs = [
             f"Beauty flows through\n{theme} in gentle whispers—\npeace finds its home.",
@@ -80,7 +85,12 @@ class DummyLocalProvider(PromptProvider):
         
         # Use hash of theme to get consistent but varied results
         index = hash(theme) % len(blurbs)
-        return blurbs[index]
+        selected_blurb = blurbs[index]
+        
+        logger.debug(f"[dummy] Selected blurb template #{index + 1} of {len(blurbs)}")
+        logger.info(f"[dummy] Blurb generated successfully (len={len(selected_blurb)}, lines={selected_blurb.count(chr(10)) + 1})")
+        
+        return selected_blurb
 
     async def make_variants_with_knobs_async(self, base_prompt: str, k: int, variant_knobs_list: List[Dict[str, str]], avoid_list: List[str] = None, max_concurrency: Optional[int] = None) -> List[str]:
         """

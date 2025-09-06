@@ -14,7 +14,7 @@ prompt_generation:
 trending_themes:
   enabled: true             # Enable trending topics-based theme recommendation using OpenAI GPT-5 with web search
   provider: "openai"        # Provider for trending topics analysis: "openai" for GPT models, "dummy" for testing
-  model: "gpt-5"            # AI model for analyzing trends and recommending themes
+  model: "gpt-5-mini"            # AI model for analyzing trends and recommending themes
   fallback_enabled: true    # Enable fallback to curated themes if trending analysis fails
 
 image_generation:

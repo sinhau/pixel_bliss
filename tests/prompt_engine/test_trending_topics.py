@@ -181,7 +181,7 @@ class TestTrendingTopicsProvider:
         assert call_args_parse[1]['model'] == 'gpt-5'
         assert 'instructions' in call_args_parse[1]
         assert 'input' in call_args_parse[1]
-        assert 'response_format' in call_args_parse[1]  # Verify structured outputs are used
+        assert 'text_format' in call_args_parse[1]  # Verify structured outputs are used
         # Ensure we don't pass tools to parse phase
         assert 'tools' not in call_args_parse[1]
         # Ensure we don't pass messages
