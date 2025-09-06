@@ -93,7 +93,7 @@ class TrendingTopicsProvider:
         start_time = time.time()
         
         # Use web search enabled model with structured outputs
-        response = await self.async_client.chat.completions.create(
+        response = await self.async_client.chat.completions.parse(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
