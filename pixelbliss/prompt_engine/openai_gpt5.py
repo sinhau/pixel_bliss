@@ -250,19 +250,37 @@ class OpenAIGPT5Provider(PromptProvider):
         )
         return response.choices[0].message.content.strip()
 
-    def make_twitter_blurb(self, theme: str, base_prompt: str, variant_prompt: str) -> str:
+    def make_twitter_blurb(self, theme: str, image_path: str) -> str:
         """
-        Generate a short, engaging blurb for Twitter posts using OpenAI GPT-5.
+        Generate a short, engaging blurb for Twitter posts using OpenAI GPT-5 with vision.
         
         Args:
             theme: The theme/category hint used for generation.
-            base_prompt: The original base prompt used for image generation.
-            variant_prompt: The specific variant prompt used for the final image.
+            image_path: Path to the generated image file.
             
         Returns:
             str: Generated blurb (haiku, philosophical quote, or short poem) 
                  that complements the image and theme, under 280 characters.
         """
+        import base64
+        from pathlib import Path
+        
+        # Read and encode the image
+        try:
+            image_data = Path(image_path).read_bytes()
+            base64_image = base64.b64encode(image_data).decode('utf-8')
+            
+            # Determine image format
+            image_format = "jpeg"
+            if image_path.lower().endswith('.png'):
+                image_format = "png"
+            elif image_path.lower().endswith('.webp'):
+                image_format = "webp"
+                
+        except Exception as e:
+            # Fallback to text-only generation if image reading fails
+            return self._make_text_only_blurb(theme)
+        
         system_prompt = (
             "You are PixelBliss Poetry Master, creating short, beautiful text that complements aesthetic wallpaper images. "
             "Your mission is to craft concise, evocative blurbs that enhance the emotional resonance of visual art—"
@@ -275,7 +293,7 @@ class OpenAIGPT5Provider(PromptProvider):
             "• Generate text that people want to read alongside beautiful imagery\n\n"
             
             "CONTENT TYPES TO GENERATE:\n"
-            "• Haiku (5-7-5 syllable structure) that captures the essence of the theme\n"
+            "• Haiku (5-7-5 syllable structure) that captures the essence of the theme and image\n"
             "• Philosophical quotes that reflect on beauty, nature, or the human experience\n"
             "• Very short poems (1-2 lines) that evoke the mood and atmosphere\n"
             "• Contemplative observations that invite reflection and wonder\n\n"
@@ -285,7 +303,7 @@ class OpenAIGPT5Provider(PromptProvider):
             "• Use evocative, sensory language that complements visual beauty\n"
             "• Focus on universal themes: nature, beauty, peace, wonder, growth, harmony\n"
             "• Avoid clichés—create fresh, original expressions\n"
-            "• Match the emotional tone of the image theme\n"
+            "• Match the emotional tone and visual elements you see in the image\n"
             "• Use line breaks for haiku and multi-line poems\n\n"
             
             "EXAMPLES OF EXCELLENT BLURBS:\n"
@@ -296,19 +314,29 @@ class OpenAIGPT5Provider(PromptProvider):
         )
         
         user_prompt = (
-            f"Create a beautiful, concise blurb for a wallpaper image with this theme and aesthetic:\n\n"
-            f"THEME: {theme}\n"
-            f"IMAGE DESCRIPTION: {variant_prompt}\n\n"
-            f"Generate a haiku, philosophical quote, or very short poem that captures the essence of this theme and "
-            f"complements the visual beauty described. The text should evoke the same feelings of calm, wonder, and "
-            f"aesthetic pleasure as the image itself. Keep it under 200 characters and make it feel like poetry."
+            f"Looking at this beautiful wallpaper image with the theme '{theme}', create a short, poetic blurb that "
+            f"captures both the visual beauty you see and the essence of the theme. Generate a haiku, philosophical quote, "
+            f"or very short poem that complements what you observe in the image. The text should evoke the same feelings "
+            f"of calm, wonder, and aesthetic pleasure as the visual itself. Keep it under 200 characters and make it feel like poetry."
         )
 
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {
+                    "role": "user", 
+                    "content": [
+                        {"type": "text", "text": user_prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/{image_format};base64,{base64_image}",
+                                "detail": "low"  # Use low detail for faster processing and lower cost
+                            }
+                        }
+                    ]
+                }
             ],
             max_completion_tokens=100  # Keep it concise
         )
@@ -334,6 +362,37 @@ class OpenAIGPT5Provider(PromptProvider):
                 blurb = blurb[:247] + "..."
         
         return blurb
+    
+    def _make_text_only_blurb(self, theme: str) -> str:
+        """
+        Fallback method to generate blurb without image when vision fails.
+        
+        Args:
+            theme: The theme/category hint used for generation.
+            
+        Returns:
+            str: Generated blurb based on theme only.
+        """
+        system_prompt = (
+            "You are PixelBliss Poetry Master, creating short, beautiful text that complements aesthetic themes. "
+            "Generate a concise, evocative blurb that captures the essence of the given theme."
+        )
+        
+        user_prompt = (
+            f"Create a beautiful, concise blurb for the theme '{theme}'. Generate a haiku, philosophical quote, "
+            f"or very short poem that captures the essence of this theme. Keep it under 200 characters and make it feel like poetry."
+        )
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_completion_tokens=100
+        )
+        
+        return response.choices[0].message.content.strip()
 
     async def make_variants_with_knobs_async(self, base_prompt: str, k: int, variant_knobs_list: List[Dict[str, str]], avoid_list: List[str] = None, max_concurrency: Optional[int] = None, progress_logger=None) -> List[str]:
         """

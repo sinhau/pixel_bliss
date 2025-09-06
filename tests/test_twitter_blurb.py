@@ -25,8 +25,7 @@ class TestTwitterBlurb:
         """Test Twitter blurb generation with dummy provider."""
         blurb = prompts.make_twitter_blurb(
             self.theme, 
-            self.base_prompt, 
-            self.variant_prompt, 
+            "/fake/image/path.jpg", 
             self.mock_config
         )
         
@@ -40,8 +39,7 @@ class TestTwitterBlurb:
         """Test that Twitter blurb respects character limits."""
         blurb = prompts.make_twitter_blurb(
             self.theme, 
-            self.base_prompt, 
-            self.variant_prompt, 
+            "/fake/image/path.jpg", 
             self.mock_config
         )
         
@@ -58,8 +56,7 @@ class TestTwitterBlurb:
             # Should return empty string on error
             blurb = prompts.make_twitter_blurb(
                 self.theme, 
-                self.base_prompt, 
-                self.variant_prompt, 
+                "/fake/image/path.jpg", 
                 self.mock_config
             )
             
@@ -71,8 +68,7 @@ class TestTwitterBlurb:
         
         blurb = provider.make_twitter_blurb(
             self.theme, 
-            self.base_prompt, 
-            self.variant_prompt
+            "/fake/image/path.jpg"
         )
         
         assert blurb is not None
@@ -87,14 +83,12 @@ class TestTwitterBlurb:
         
         blurb1 = provider.make_twitter_blurb(
             self.theme, 
-            self.base_prompt, 
-            self.variant_prompt
+            "/fake/image/path1.jpg"
         )
         
         blurb2 = provider.make_twitter_blurb(
             self.theme, 
-            "Different base prompt", 
-            "Different variant prompt"
+            "/fake/image/path2.jpg"
         )
         
         # Should be the same since dummy provider uses hash of theme
@@ -106,14 +100,12 @@ class TestTwitterBlurb:
         
         blurb1 = provider.make_twitter_blurb(
             "nature", 
-            self.base_prompt, 
-            self.variant_prompt
+            "/fake/image/path.jpg"
         )
         
         blurb2 = provider.make_twitter_blurb(
             "cosmic", 
-            self.base_prompt, 
-            self.variant_prompt
+            "/fake/image/path.jpg"
         )
         
         # Should be different for different themes
@@ -121,8 +113,13 @@ class TestTwitterBlurb:
 
     @patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI')
     @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
-    def test_openai_provider_make_twitter_blurb(self, mock_openai_class, mock_async_openai_class):
-        """Test OpenAIGPT5Provider's make_twitter_blurb method."""
+    @patch('builtins.open', create=True)
+    @patch('pathlib.Path.read_bytes')
+    def test_openai_provider_make_twitter_blurb(self, mock_read_bytes, mock_open, mock_openai_class, mock_async_openai_class):
+        """Test OpenAIGPT5Provider's make_twitter_blurb method with vision."""
+        # Mock image file reading
+        mock_read_bytes.return_value = b"fake_image_data"
+        
         # Mock the OpenAI client response
         mock_client = Mock()
         mock_response = Mock()
@@ -136,8 +133,7 @@ class TestTwitterBlurb:
         
         blurb = provider.make_twitter_blurb(
             self.theme, 
-            self.base_prompt, 
-            self.variant_prompt
+            "/fake/image/path.jpg"
         )
         
         assert blurb == "Nature whispers\nits ancient secrets—\npeace flows within."
@@ -152,15 +148,22 @@ class TestTwitterBlurb:
         assert call_args[1]['messages'][0]['role'] == 'system'
         assert call_args[1]['messages'][1]['role'] == 'user'
         
-        # Check that the user message contains our inputs
+        # Check that the user message contains our theme and has multimodal content
         user_message = call_args[1]['messages'][1]['content']
-        assert self.theme in user_message
-        assert self.variant_prompt in user_message
+        assert isinstance(user_message, list)
+        assert len(user_message) == 2
+        assert user_message[0]['type'] == 'text'
+        assert self.theme in user_message[0]['text']
+        assert user_message[1]['type'] == 'image_url'
 
     @patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI')
     @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
-    def test_openai_provider_character_limit_truncation(self, mock_openai_class, mock_async_openai_class):
+    @patch('pathlib.Path.read_bytes')
+    def test_openai_provider_character_limit_truncation(self, mock_read_bytes, mock_openai_class, mock_async_openai_class):
         """Test that OpenAI provider truncates long responses."""
+        # Mock image file reading
+        mock_read_bytes.return_value = b"fake_image_data"
+        
         # Mock a very long response
         long_response = "This is a very long haiku that exceeds the character limit. " * 10
         
@@ -176,8 +179,7 @@ class TestTwitterBlurb:
         
         blurb = provider.make_twitter_blurb(
             self.theme, 
-            self.base_prompt, 
-            self.variant_prompt
+            "/fake/image/path.jpg"
         )
         
         assert len(blurb) <= 250  # Should be truncated
@@ -185,8 +187,12 @@ class TestTwitterBlurb:
 
     @patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI')
     @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
-    def test_openai_provider_multiline_truncation(self, mock_openai_class, mock_async_openai_class):
+    @patch('pathlib.Path.read_bytes')
+    def test_openai_provider_multiline_truncation(self, mock_read_bytes, mock_openai_class, mock_async_openai_class):
         """Test that OpenAI provider truncates multiline responses properly."""
+        # Mock image file reading
+        mock_read_bytes.return_value = b"fake_image_data"
+        
         # Mock a multiline response where some lines are too long
         multiline_response = "Short line\nThis is a very long line that would exceed the character limit when combined with other lines and should be truncated properly\nAnother short line\nYet another line that makes it too long"
         
@@ -202,8 +208,7 @@ class TestTwitterBlurb:
         
         blurb = provider.make_twitter_blurb(
             self.theme, 
-            self.base_prompt, 
-            self.variant_prompt
+            "/fake/image/path.jpg"
         )
         
         assert len(blurb) <= 250
@@ -251,8 +256,7 @@ class TestTwitterBlurb:
         for theme in themes:
             blurb = provider.make_twitter_blurb(
                 theme, 
-                self.base_prompt, 
-                self.variant_prompt
+                "/fake/image/path.jpg"
             )
             
             # Should contain the theme
@@ -274,8 +278,7 @@ class TestTwitterBlurb:
         for theme in themes:
             blurb = prompts.make_twitter_blurb(
                 theme, 
-                f"A beautiful {theme} image", 
-                f"An aesthetic {theme} composition with artistic elements", 
+                "/fake/image/path.jpg", 
                 self.mock_config
             )
             
@@ -284,3 +287,32 @@ class TestTwitterBlurb:
             # For dummy provider, should contain the theme
             if self.mock_config.prompt_generation.provider == "dummy":
                 assert theme in blurb
+
+    @patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI')
+    @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
+    @patch('pathlib.Path.read_bytes')
+    def test_openai_provider_image_read_failure(self, mock_read_bytes, mock_openai_class, mock_async_openai_class):
+        """Test fallback when image reading fails."""
+        # Mock image file reading failure
+        mock_read_bytes.side_effect = Exception("File not found")
+        
+        # Mock the fallback text-only response
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "Nature finds its way."
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_openai_class.return_value = mock_client
+        mock_async_openai_class.return_value = Mock()
+        
+        provider = OpenAIGPT5Provider()
+        
+        blurb = provider.make_twitter_blurb(
+            self.theme, 
+            "/nonexistent/image/path.jpg"
+        )
+        
+        assert blurb == "Nature finds its way."
+        
+        # Should have called the fallback text-only method
+        mock_client.chat.completions.create.assert_called_once()

@@ -179,14 +179,13 @@ def make_alt_text(base_prompt: str, variant_prompt: str, cfg: Config) -> str:
     provider = get_provider(cfg)
     return provider.make_alt_text(base_prompt, variant_prompt)
 
-def make_twitter_blurb(theme: str, base_prompt: str, variant_prompt: str, cfg: Config) -> str:
+def make_twitter_blurb(theme: str, image_path: str, cfg: Config) -> str:
     """
-    Generate a short, engaging blurb for Twitter posts.
+    Generate a short, engaging blurb for Twitter posts using multimodal capabilities.
     
     Args:
         theme: The theme/category hint used for generation.
-        base_prompt: The original base prompt used for image generation.
-        variant_prompt: The specific variant prompt used for the final image.
+        image_path: Path to the generated image file.
         cfg: Configuration object containing prompt generation settings.
         
     Returns:
@@ -198,7 +197,7 @@ def make_twitter_blurb(theme: str, base_prompt: str, variant_prompt: str, cfg: C
     provider = get_provider(cfg)
     
     try:
-        blurb = provider.make_twitter_blurb(theme, base_prompt, variant_prompt)
+        blurb = provider.make_twitter_blurb(theme, image_path)
         logger.info(f"Twitter blurb generated: {blurb[:50]}...")
         return blurb
     except Exception as e:

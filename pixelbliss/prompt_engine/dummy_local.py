@@ -59,14 +59,13 @@ class DummyLocalProvider(PromptProvider):
         """
         return "A stunning aesthetic image featuring vibrant colors and intricate details."
 
-    def make_twitter_blurb(self, theme: str, base_prompt: str, variant_prompt: str) -> str:
+    def make_twitter_blurb(self, theme: str, image_path: str) -> str:
         """
         Generate a simple Twitter blurb for testing purposes.
         
         Args:
             theme: The theme/category hint used for generation.
-            base_prompt: The original base prompt used for image generation.
-            variant_prompt: The specific variant prompt used for the final image.
+            image_path: Path to the generated image file (unused in dummy implementation).
             
         Returns:
             str: Simple test blurb that complements the theme.

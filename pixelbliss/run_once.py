@@ -544,8 +544,8 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             base_img_key = "base_img"
             logger.info(f"Posting base image: {base_img_key}")
             
-            # Generate Twitter blurb for human selection path
-            twitter_blurb = prompts.make_twitter_blurb(theme_hint, base_prompt, winner["prompt"], cfg)
+            # Generate Twitter blurb for human selection path using the actual image
+            twitter_blurb = prompts.make_twitter_blurb(theme_hint, fs_abs(public_paths["base_img"]), cfg)
             if twitter_blurb:
                 logger.info(f"Twitter blurb generated: {twitter_blurb}")
                 # Append blurb to alt text for enhanced accessibility
@@ -710,8 +710,8 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         alt = prompts.make_alt_text(base_prompt, winner["prompt"], cfg)
         logger.debug(f"Alt text generated: {alt[:100]}...")
         
-        # Generate Twitter blurb
-        twitter_blurb = prompts.make_twitter_blurb(theme_hint, base_prompt, winner["prompt"], cfg)
+        # Generate Twitter blurb using the actual image
+        twitter_blurb = prompts.make_twitter_blurb(theme_hint, base_img, cfg)
         if twitter_blurb:
             logger.info(f"Twitter blurb generated: {twitter_blurb}")
             # Append blurb to alt text for enhanced accessibility
