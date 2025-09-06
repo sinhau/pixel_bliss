@@ -46,3 +46,18 @@ class PromptProvider(Protocol):
             str: Generated alt text describing the image.
         """
         ...
+    
+    def make_twitter_blurb(self, theme: str, base_prompt: str, variant_prompt: str) -> str:
+        """
+        Generate a short, engaging blurb for Twitter posts.
+        
+        Args:
+            theme: The theme/category hint used for generation.
+            base_prompt: The original base prompt used for image generation.
+            variant_prompt: The specific variant prompt used for the final image.
+            
+        Returns:
+            str: Generated blurb (haiku, philosophical quote, or short poem) 
+                 that complements the image and theme, under 280 characters.
+        """
+        ...

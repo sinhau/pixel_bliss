@@ -250,6 +250,91 @@ class OpenAIGPT5Provider(PromptProvider):
         )
         return response.choices[0].message.content.strip()
 
+    def make_twitter_blurb(self, theme: str, base_prompt: str, variant_prompt: str) -> str:
+        """
+        Generate a short, engaging blurb for Twitter posts using OpenAI GPT-5.
+        
+        Args:
+            theme: The theme/category hint used for generation.
+            base_prompt: The original base prompt used for image generation.
+            variant_prompt: The specific variant prompt used for the final image.
+            
+        Returns:
+            str: Generated blurb (haiku, philosophical quote, or short poem) 
+                 that complements the image and theme, under 280 characters.
+        """
+        system_prompt = (
+            "You are PixelBliss Poetry Master, creating short, beautiful text that complements aesthetic wallpaper images. "
+            "Your mission is to craft concise, evocative blurbs that enhance the emotional resonance of visual art—"
+            "text that feels like a perfect companion to moments of beauty and wonder.\n\n"
+            
+            "BLURB PHILOSOPHY:\n"
+            "• Create text that amplifies the aesthetic and emotional impact of the image\n"
+            "• Write content that induces the same feelings as the visual: calm, joy, wonder, contemplation\n"
+            "• Craft words that feel like poetry—rhythmic, evocative, and emotionally resonant\n"
+            "• Generate text that people want to read alongside beautiful imagery\n\n"
+            
+            "CONTENT TYPES TO GENERATE:\n"
+            "• Haiku (5-7-5 syllable structure) that captures the essence of the theme\n"
+            "• Philosophical quotes that reflect on beauty, nature, or the human experience\n"
+            "• Very short poems (1-2 lines) that evoke the mood and atmosphere\n"
+            "• Contemplative observations that invite reflection and wonder\n\n"
+            
+            "STYLE GUIDELINES:\n"
+            "• Keep under 200 characters (well within Twitter's 280 limit)\n"
+            "• Use evocative, sensory language that complements visual beauty\n"
+            "• Focus on universal themes: nature, beauty, peace, wonder, growth, harmony\n"
+            "• Avoid clichés—create fresh, original expressions\n"
+            "• Match the emotional tone of the image theme\n"
+            "• Use line breaks for haiku and multi-line poems\n\n"
+            
+            "EXAMPLES OF EXCELLENT BLURBS:\n"
+            "• 'Light finds its way\\nthrough the smallest of spaces—\\nbeauty, persistent.'\n"
+            "• 'In stillness, we discover the art of being present with wonder.'\n"
+            "• 'Every sunset is\\na masterpiece painted once,\\nnever to repeat.'\n"
+            "• 'The universe whispers its secrets in colors we've never named.'"
+        )
+        
+        user_prompt = (
+            f"Create a beautiful, concise blurb for a wallpaper image with this theme and aesthetic:\n\n"
+            f"THEME: {theme}\n"
+            f"IMAGE DESCRIPTION: {variant_prompt}\n\n"
+            f"Generate a haiku, philosophical quote, or very short poem that captures the essence of this theme and "
+            f"complements the visual beauty described. The text should evoke the same feelings of calm, wonder, and "
+            f"aesthetic pleasure as the image itself. Keep it under 200 characters and make it feel like poetry."
+        )
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_completion_tokens=100  # Keep it concise
+        )
+        
+        blurb = response.choices[0].message.content.strip()
+        
+        # Ensure it's under 280 characters (with some buffer for safety)
+        if len(blurb) > 250:
+            # Try to truncate at a natural break point
+            if '\n' in blurb:
+                lines = blurb.split('\n')
+                truncated = []
+                current_length = 0
+                for line in lines:
+                    if current_length + len(line) + 1 <= 250:  # +1 for newline
+                        truncated.append(line)
+                        current_length += len(line) + 1
+                    else:
+                        break
+                if truncated:
+                    blurb = '\n'.join(truncated)
+            else:
+                blurb = blurb[:247] + "..."
+        
+        return blurb
+
     async def make_variants_with_knobs_async(self, base_prompt: str, k: int, variant_knobs_list: List[Dict[str, str]], avoid_list: List[str] = None, max_concurrency: Optional[int] = None, progress_logger=None) -> List[str]:
         """
         Generate k variations of a base prompt using knobs system asynchronously.

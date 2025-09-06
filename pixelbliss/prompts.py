@@ -179,6 +179,32 @@ def make_alt_text(base_prompt: str, variant_prompt: str, cfg: Config) -> str:
     provider = get_provider(cfg)
     return provider.make_alt_text(base_prompt, variant_prompt)
 
+def make_twitter_blurb(theme: str, base_prompt: str, variant_prompt: str, cfg: Config) -> str:
+    """
+    Generate a short, engaging blurb for Twitter posts.
+    
+    Args:
+        theme: The theme/category hint used for generation.
+        base_prompt: The original base prompt used for image generation.
+        variant_prompt: The specific variant prompt used for the final image.
+        cfg: Configuration object containing prompt generation settings.
+        
+    Returns:
+        str: Generated blurb (haiku, philosophical quote, or short poem) 
+             that complements the image and theme, under 280 characters.
+             Returns empty string if generation fails.
+    """
+    logger = get_logger('prompts')
+    provider = get_provider(cfg)
+    
+    try:
+        blurb = provider.make_twitter_blurb(theme, base_prompt, variant_prompt)
+        logger.info(f"Twitter blurb generated: {blurb[:50]}...")
+        return blurb
+    except Exception as e:
+        logger.warning(f"Twitter blurb generation failed: {e}")
+        return ""  # Graceful fallback to empty string
+
 async def make_variants_from_base_async(base_prompt: str, k: int, cfg: Config, progress_logger=None) -> list[str]:
     """
     Generate k variations of a base prompt in parallel using the knobs system.

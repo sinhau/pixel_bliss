@@ -544,15 +544,26 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             base_img_key = "base_img"
             logger.info(f"Posting base image: {base_img_key}")
             
+            # Generate Twitter blurb for human selection path
+            twitter_blurb = prompts.make_twitter_blurb(theme_hint, base_prompt, winner["prompt"], cfg)
+            if twitter_blurb:
+                logger.info(f"Twitter blurb generated: {twitter_blurb}")
+                # Append blurb to alt text for enhanced accessibility
+                alt_with_blurb = f"{alt} {twitter_blurb}"
+            else:
+                logger.info("No Twitter blurb generated, using alt text only")
+                alt_with_blurb = alt
+                twitter_blurb = ""  # Ensure empty string for tweet
+            
             try:
                 media_ids = twitter.client.upload_media([fs_abs(public_paths[base_img_key])])
                 logger.debug(f"Media uploaded, ID: {media_ids[0]}")
                 
-                twitter.client.set_alt_text(media_ids[0], alt)
-                logger.debug("Alt text set for media")
+                twitter.client.set_alt_text(media_ids[0], alt_with_blurb)
+                logger.debug("Alt text with blurb set for media")
                 
-                tweet_id = twitter.client.create_tweet(text="", media_ids=media_ids)
-                logger.info(f"Tweet posted successfully, ID: {tweet_id}")
+                tweet_id = twitter.client.create_tweet(text=twitter_blurb, media_ids=media_ids)
+                logger.info(f"Tweet posted successfully with blurb, ID: {tweet_id}")
                 
                 # Update records with tweet ID
                 manifest.update_tweet_id(f"{date_str}_{theme_hint}_{slug}", tweet_id)
@@ -694,10 +705,21 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         logger.info(f"Created {len(wallpapers)} wallpaper variants: {list(wallpapers.keys())}")
         progress_logger.success(f"Created {len(wallpapers)} wallpaper variants")
 
-        # Step 9: Generate alt text and save files
-        progress_logger.step("Saving files and metadata")
+        # Step 9: Generate alt text, Twitter blurb, and save files
+        progress_logger.step("Generating content and saving files")
         alt = prompts.make_alt_text(base_prompt, winner["prompt"], cfg)
         logger.debug(f"Alt text generated: {alt[:100]}...")
+        
+        # Generate Twitter blurb
+        twitter_blurb = prompts.make_twitter_blurb(theme_hint, base_prompt, winner["prompt"], cfg)
+        if twitter_blurb:
+            logger.info(f"Twitter blurb generated: {twitter_blurb}")
+            # Append blurb to alt text for enhanced accessibility
+            alt_with_blurb = f"{alt} {twitter_blurb}"
+        else:
+            logger.info("No Twitter blurb generated, using alt text only")
+            alt_with_blurb = alt
+            twitter_blurb = ""  # Ensure empty string for tweet
         
         public_paths = storage.fs.save_images(out_dir, wallpapers, base_img)
         logger.info(f"Images saved to: {out_dir}")
@@ -753,11 +775,11 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             media_ids = twitter.client.upload_media([fs_abs(public_paths[base_img_key])])
             logger.debug(f"Media uploaded, ID: {media_ids[0]}")
             
-            twitter.client.set_alt_text(media_ids[0], alt)
-            logger.debug("Alt text set for media")
+            twitter.client.set_alt_text(media_ids[0], alt_with_blurb)
+            logger.debug("Alt text with blurb set for media")
             
-            tweet_id = twitter.client.create_tweet(text="", media_ids=media_ids)
-            logger.info(f"Tweet posted successfully, ID: {tweet_id}")
+            tweet_id = twitter.client.create_tweet(text=twitter_blurb, media_ids=media_ids)
+            logger.info(f"Tweet posted successfully with blurb, ID: {tweet_id}")
             
             # Update records with tweet ID
             manifest.update_tweet_id(f"{date_str}_{theme_hint}_{slug}", tweet_id)

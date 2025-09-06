@@ -59,6 +59,30 @@ class DummyLocalProvider(PromptProvider):
         """
         return "A stunning aesthetic image featuring vibrant colors and intricate details."
 
+    def make_twitter_blurb(self, theme: str, base_prompt: str, variant_prompt: str) -> str:
+        """
+        Generate a simple Twitter blurb for testing purposes.
+        
+        Args:
+            theme: The theme/category hint used for generation.
+            base_prompt: The original base prompt used for image generation.
+            variant_prompt: The specific variant prompt used for the final image.
+            
+        Returns:
+            str: Simple test blurb that complements the theme.
+        """
+        # Simple template-based blurbs for testing
+        blurbs = [
+            f"Beauty flows through\n{theme} in gentle whispers—\npeace finds its home.",
+            f"In {theme}, we find the quiet spaces where wonder lives.",
+            f"Every moment of {theme} holds a universe of calm.",
+            f"Where {theme} meets light,\nmagic writes itself in color—\nstillness, profound."
+        ]
+        
+        # Use hash of theme to get consistent but varied results
+        index = hash(theme) % len(blurbs)
+        return blurbs[index]
+
     async def make_variants_with_knobs_async(self, base_prompt: str, k: int, variant_knobs_list: List[Dict[str, str]], avoid_list: List[str] = None, max_concurrency: Optional[int] = None) -> List[str]:
         """
         Generate k variations of a base prompt using knobs system asynchronously for testing.
