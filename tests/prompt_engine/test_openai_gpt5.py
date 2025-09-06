@@ -230,19 +230,3 @@ class TestOpenAIGPT5Provider:
         variants = await provider.make_variants_with_knobs_async(base_prompt, 2, variant_knobs_list, max_concurrency=0)
         assert len(variants) == 2
         assert all(v == "Async variant with knobs" for v in variants)
-
-    @patch('pixelbliss.prompt_engine.openai_gpt5.AsyncOpenAI')
-    @patch('pixelbliss.prompt_engine.openai_gpt5.OpenAI')
-    def test_make_text_only_blurb_fallback(self, mock_openai, mock_async_openai):
-        """Test _make_text_only_blurb fallback when API fails."""
-        mock_client = Mock()
-        mock_openai.return_value = mock_client
-        
-        # First call fails, should return simple fallback
-        mock_client.chat.completions.create.side_effect = Exception("API Error")
-
-        provider = OpenAIGPT5Provider()
-        result = provider._make_text_only_blurb("nature")
-        
-        assert result == "In nature, we find beauty."
-        mock_client.chat.completions.create.assert_called_once()

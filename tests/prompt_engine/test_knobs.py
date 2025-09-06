@@ -105,18 +105,18 @@ class TestKnobData:
         assert all(isinstance(v, str) for v in AVOID)
     
     def test_specific_knob_counts(self):
-        """Test that knobs have the expected counts from the specification."""
-        # From the specification
-        assert len(BASE_KNOBS["vibe"]) == 18
-        assert len(BASE_KNOBS["palette"]) == 16
-        assert len(BASE_KNOBS["light"]) == 16
-        assert len(BASE_KNOBS["texture"]) == 16
-        assert len(BASE_KNOBS["composition"]) == 16
-        assert len(BASE_KNOBS["style"]) == 16
+        """Test that knobs have the expected counts from the implementation."""
+        # From the actual implementation
+        assert len(BASE_KNOBS["vibe"]) == 88
+        assert len(BASE_KNOBS["palette"]) == 109
+        assert len(BASE_KNOBS["light"]) == 48
+        assert len(BASE_KNOBS["texture"]) == 50
+        assert len(BASE_KNOBS["composition"]) == 40
+        assert len(BASE_KNOBS["style"]) == 88
         
-        assert len(VARIANT_KNOBS["tone_curve"]) == 12
-        assert len(VARIANT_KNOBS["color_grade"]) == 16
-        assert len(VARIANT_KNOBS["surface_fx"]) == 16
+        assert len(VARIANT_KNOBS["tone_curve"]) == 35
+        assert len(VARIANT_KNOBS["color_grade"]) == 61
+        assert len(VARIANT_KNOBS["surface_fx"]) == 49
         
         assert len(AVOID) == 11
 

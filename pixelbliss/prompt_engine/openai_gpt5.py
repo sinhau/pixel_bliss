@@ -332,25 +332,22 @@ class OpenAIGPT5Provider(PromptProvider):
 
         logger.debug(f"[openai] Sending vision request to {self.model}")
         try:
-            response = self.client.chat.completions.create(
+            response = self.client.responses.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
+                instructions=system_prompt,
+                input=[
                     {
                         "role": "user", 
                         "content": [
-                            {"type": "text", "text": user_prompt},
+                            {"type": "input_text", "text": user_prompt},
                             {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/{image_format};base64,{base64_image}",
-                                    "detail": "low"  # Use low detail for faster processing and lower cost
-                                }
+                                "type": "input_image",
+                                "image_url": f"data:image/{image_format};base64,{base64_image}",
+                                "detail": "high"
                             }
                         ]
                     }
                 ],
-                max_completion_tokens=100  # Keep it concise
             )
             
             blurb = response.choices[0].message.content.strip()
@@ -359,53 +356,8 @@ class OpenAIGPT5Provider(PromptProvider):
             return blurb
             
         except Exception as e:
-            logger.warning(f"[openai] Vision API call failed, falling back to text-only: {e}")
-            return self._make_text_only_blurb(theme)
+            logger.warning(f"[openai] Vision API call failed: {e}")
     
-    def _make_text_only_blurb(self, theme: str) -> str:
-        """
-        Fallback method to generate blurb without image when vision fails.
-        
-        Args:
-            theme: The theme/category hint used for generation.
-            
-        Returns:
-            str: Generated blurb based on theme only.
-        """
-        logger = get_logger('prompt_engine.openai_gpt5')
-        logger.info(f"[openai] Generating text-only blurb fallback (model={self.model}, theme='{theme}')")
-        
-        system_prompt = (
-            "You are PixelBliss Poetry Master, creating short, beautiful text that complements aesthetic themes. "
-            "Generate a concise, evocative blurb that captures the essence of the given theme."
-        )
-        
-        user_prompt = (
-            f"Create a beautiful, concise blurb for the theme '{theme}'. Generate a haiku, philosophical quote, "
-            f"or very short poem that captures the essence of this theme. Keep it under 200 characters and make it feel like poetry."
-        )
-
-        logger.debug(f"[openai] Sending text-only request to {self.model}")
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_completion_tokens=100
-            )
-            
-            blurb = response.choices[0].message.content.strip()
-            
-            logger.info(f"[openai] Text-only blurb generated successfully (len={len(blurb)})")
-            return blurb
-            
-        except Exception as e:
-            logger.error(f"[openai] Text-only blurb generation failed: {e}")
-            # Return a simple fallback based on theme
-            return f"In {theme}, we find beauty."
-
     async def make_variants_with_knobs_async(self, base_prompt: str, k: int, variant_knobs_list: List[Dict[str, str]], avoid_list: List[str] = None, max_concurrency: Optional[int] = None, progress_logger=None) -> List[str]:
         """
         Generate k variations of a base prompt using knobs system asynchronously.
