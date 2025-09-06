@@ -72,7 +72,8 @@ class TrendingTopicsProvider:
             "2. Seasonal relevance and natural phenomena\n"
             "3. Aesthetic movements and design trends\n"
             "4. Popular visual themes in art and photography\n"
-            "5. Emerging color palettes and visual styles\n\n"
+            "5. Emerging color palettes and visual styles\n"
+            "6. Any relevent trending new about people, places, animals, etc.\n\n"
             "Provide your recommendation with a brief explanation of why this theme is trending and suitable for wallpapers."
         )
         
