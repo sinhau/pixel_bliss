@@ -12,15 +12,97 @@ from .config import Config
 from .logging_config import get_logger, ProgressLogger
 import pytz
 
-def generate_theme_hint() -> str:
+def generate_theme_hint(cfg: Config, progress_logger=None) -> str:
     """
-    Generate a simple theme hint for knobs-based prompt generation.
-    This replaces the old category system with a lightweight theme suggestion.
+    Generate a theme hint using trending topics analysis or fallback to curated themes.
+    
+    Args:
+        cfg: Configuration object containing trending themes settings.
+        progress_logger: Optional progress logger for tracking.
     
     Returns:
-        str: A simple theme hint for the knobs system.
+        str: A theme hint for the knobs system.
     """
-    # Simple theme hints that work well with the knobs system
+    if cfg.trending_themes.enabled:
+        try:
+            from .prompt_engine.trending_topics import TrendingTopicsProvider
+            
+            provider = TrendingTopicsProvider(
+                model=cfg.trending_themes.model
+            )
+            
+            if cfg.trending_themes.async_enabled:
+                # For sync context, we'll use the sync method
+                return provider.get_trending_theme(progress_logger)
+            else:
+                return provider.get_trending_theme(progress_logger)
+                
+        except Exception as e:
+            logger = get_logger('theme_generation')
+            logger.error(f"Trending topics failed: {e}")
+            if progress_logger:
+                progress_logger.warning("Trending topics failed, using fallback themes")
+            
+            if not cfg.trending_themes.fallback_enabled:
+                raise e
+    
+    # Fallback to curated theme hints
+    themes = [
+        # keep the broad, content-agnostic originals
+        "abstract", "nature", "cosmic", "geometric", "organic", "crystalline", "flow",
+
+        # concept & idea themes (not style/mood)
+        "balance", "harmony", "unity", "duality", "symmetry", "asymmetry",
+        "cycles", "growth", "renewal", "emergence", "evolution",
+        "interconnection", "networks", "continuum", "wholeness", "infinity",
+        "order and randomness", "pattern", "repetition", "rhythm",
+
+        # math & structure (conceptual domains, not aesthetics)
+        "fractal", "spirals", "tessellation", "lattice", "grid",
+        "waveforms", "fields", "orbits", "constellations", "topography", "cartography",
+
+        # natural domains (generic, non-specific)
+        "elemental", "terrestrial", "celestial", "aquatic", "mineral",
+        "botanical", "aerial", "seasonal", "weather",
+
+        # metaphor & abstract idea spaces
+        "journey", "thresholds", "liminality", "sanctuary", "play",
+        "curiosity", "wonder", "stillness", "openness", "simplicity",
+        "order and flow", "cause and effect", "microcosm and macrocosm"
+    ]
+    return random.choice(themes)
+
+async def generate_theme_hint_async(cfg: Config, progress_logger=None) -> str:
+    """
+    Generate a theme hint using trending topics analysis asynchronously.
+    
+    Args:
+        cfg: Configuration object containing trending themes settings.
+        progress_logger: Optional progress logger for tracking.
+    
+    Returns:
+        str: A theme hint for the knobs system.
+    """
+    if cfg.trending_themes.enabled:
+        try:
+            from .prompt_engine.trending_topics import TrendingTopicsProvider
+            
+            provider = TrendingTopicsProvider(
+                model=cfg.trending_themes.model
+            )
+            
+            return await provider.get_trending_theme_async(progress_logger)
+                
+        except Exception as e:
+            logger = get_logger('theme_generation')
+            logger.error(f"Trending topics failed: {e}")
+            if progress_logger:
+                progress_logger.warning("Trending topics failed, using fallback themes")
+            
+            if not cfg.trending_themes.fallback_enabled:
+                raise e
+    
+    # Fallback to curated theme hints
     themes = [
         # keep the broad, content-agnostic originals
         "abstract", "nature", "cosmic", "geometric", "organic", "crystalline", "flow",
@@ -52,12 +134,12 @@ def select_category(cfg: Config) -> str:
     This is a compatibility function that wraps generate_theme_hint().
     
     Args:
-        cfg: Configuration object (unused, kept for compatibility).
+        cfg: Configuration object containing trending themes settings.
         
     Returns:
         str: A selected theme/category.
     """
-    return generate_theme_hint()
+    return generate_theme_hint(cfg)
 
 def try_in_order(prompt: str, provider_names: List[str], models: List[str], retries: int) -> Optional[ImageResult]:
     """
@@ -385,7 +467,10 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
 
         # Step 2: Generate theme hint
         progress_logger.step("Generating theme hint")
-        theme_hint = generate_theme_hint()
+        if cfg.trending_themes.enabled and cfg.trending_themes.async_enabled:
+            theme_hint = await generate_theme_hint_async(cfg, progress_logger)
+        else:
+            theme_hint = generate_theme_hint(cfg, progress_logger)
         logger.info(f"Generated theme hint: {theme_hint}")
         progress_logger.success(f"Theme hint generated", f"{theme_hint}")
 

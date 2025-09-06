@@ -13,6 +13,13 @@ prompt_generation:
   variant_strategy: "multiple"  # "single" = vary one knob (maintains identity), "multiple" = vary all knobs (more diversity)
   # System/style rules enforced at runtime: no real people/logos/NSFW content, includes negative prompts, aesthetic style hints
 
+trending_themes:
+  enabled: true             # Enable trending topics-based theme recommendation using OpenAI GPT-5 with web search
+  provider: "openai"        # Provider for trending topics analysis: "openai" for GPT models, "dummy" for testing
+  model: "gpt-5"            # AI model for analyzing trends and recommending themes
+  fallback_enabled: true    # Enable fallback to curated themes if trending analysis fails
+  async_enabled: true       # Enable async trending theme generation for better performance
+
 image_generation:
   provider_order: ["fal", "replicate"]  # Order to try image generation providers - FAL first, then Replicate as fallback
   model_fal: ["fal-ai/gemini-25-flash-image", "fal-ai/bytedance/seedream/v3/text-to-image", "fal-ai/imagen4/preview/ultra"]     # FAL AI models to use for image generation

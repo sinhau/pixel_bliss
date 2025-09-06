@@ -14,7 +14,10 @@ class TestThemeGeneration:
 
     def test_generate_theme_hint_returns_valid_theme(self):
         """Test generate_theme_hint returns a valid theme."""
-        result = generate_theme_hint()
+        from pixelbliss.config import Config
+        cfg = Config()
+        cfg.trending_themes.enabled = False  # Use fallback themes for testing
+        result = generate_theme_hint(cfg)
         
         # Should return one of the predefined themes from the actual implementation
         expected_themes = [
@@ -44,9 +47,12 @@ class TestThemeGeneration:
 
     def test_generate_theme_hint_multiple_calls(self):
         """Test generate_theme_hint returns valid themes across multiple calls."""
+        from pixelbliss.config import Config
+        cfg = Config()
+        cfg.trending_themes.enabled = False  # Use fallback themes for testing
         results = []
         for _ in range(20):
-            result = generate_theme_hint()
+            result = generate_theme_hint(cfg)
             results.append(result)
             
         # All results should be valid themes from the actual implementation

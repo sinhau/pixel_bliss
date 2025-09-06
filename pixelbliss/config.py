@@ -13,6 +13,13 @@ class PromptGeneration(BaseModel):
     use_knobs: bool = True  # Use new knobs system instead of legacy categories/art_styles
     variant_strategy: str = "single"  # "single" = vary one knob, "multiple" = vary all knobs
 
+class TrendingThemes(BaseModel):
+    enabled: bool = True
+    provider: str = "openai"
+    model: str = "gpt-5"
+    fallback_enabled: bool = True
+    async_enabled: bool = True
+
 class ImageGeneration(BaseModel):
     provider_order: List[str] = ["fal", "replicate"]
     model_fal: List[str] = ["black-forest-labs/flux-1.1"]
@@ -71,6 +78,7 @@ class Discord(BaseModel):
 class Config(BaseModel):
     timezone: str = "America/Los_Angeles"
     prompt_generation: PromptGeneration = Field(default_factory=PromptGeneration)
+    trending_themes: TrendingThemes = Field(default_factory=TrendingThemes)
     image_generation: ImageGeneration = Field(default_factory=ImageGeneration)
     ranking: Ranking = Field(default_factory=Ranking)
     aesthetic_scoring: AestheticScoring = Field(default_factory=AestheticScoring)
