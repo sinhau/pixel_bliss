@@ -498,6 +498,10 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
             public_paths = storage.fs.save_images(out_dir, wallpapers, base_img)
             logger.info(f"Images saved to: {out_dir}")
             
+            # Save all original candidate images in candidates subfolder
+            candidate_paths = storage.fs.save_candidate_images(out_dir, candidates)
+            logger.info(f"Saved {len(candidate_paths)} candidate images to candidates subfolder")
+            
             ph = phash.phash_hex(wallpapers[next(iter(wallpapers))])
             
             meta = {
@@ -723,6 +727,10 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
         
         public_paths = storage.fs.save_images(out_dir, wallpapers, base_img)
         logger.info(f"Images saved to: {out_dir}")
+        
+        # Save all original candidate images in candidates subfolder
+        candidate_paths = storage.fs.save_candidate_images(out_dir, scored)
+        logger.info(f"Saved {len(candidate_paths)} candidate images to candidates subfolder")
         
         ph = phash.phash_hex(wallpapers[next(iter(wallpapers))])
         

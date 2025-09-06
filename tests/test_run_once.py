@@ -286,12 +286,13 @@ class TestPostOnceIntegration:
     @patch('pixelbliss.run_once.phash.phash_hex')
     @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
     @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_candidate_images')
     @patch('pixelbliss.run_once.storage.fs.save_images')
     @patch('pixelbliss.run_once.storage.fs.save_meta')
     @patch('pixelbliss.run_once.manifest.append')
     @patch('pixelbliss.run_once.now_iso')
     @pytest.mark.asyncio
-    async def test_post_once_success_path(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
+    async def test_post_once_success_path(self, mock_iso, mock_append, mock_save_meta, mock_save_images, mock_save_candidates,
                                  mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                  mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
                                  mock_score_parallel, mock_quality, mock_floors, mock_entropy, mock_brightness,
@@ -367,12 +368,13 @@ class TestPostOnceIntegration:
     @patch('pixelbliss.run_once.phash.phash_hex')
     @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
     @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_candidate_images')
     @patch('pixelbliss.run_once.storage.fs.save_images')
     @patch('pixelbliss.run_once.storage.fs.save_meta')
     @patch('pixelbliss.run_once.manifest.append')
     @patch('pixelbliss.run_once.now_iso')
     @pytest.mark.asyncio
-    async def test_post_once_async_prompt_generation(self, mock_iso, mock_append, mock_save_meta, mock_save_images,
+    async def test_post_once_async_prompt_generation(self, mock_iso, mock_append, mock_save_meta, mock_save_images, mock_save_candidates,
                                              mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                              mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
                                              mock_score_parallel, mock_quality, mock_floors, mock_entropy, mock_brightness,
@@ -449,13 +451,14 @@ class TestPostOnceIntegration:
     @patch('pixelbliss.run_once.phash.phash_hex')
     @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
     @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_candidate_images')
     @patch('pixelbliss.run_once.storage.fs.save_images')
     @patch('pixelbliss.run_once.storage.fs.save_meta')
     @patch('pixelbliss.run_once.manifest.append')
     @patch('pixelbliss.run_once.now_iso')
     @patch('pixelbliss.alerts.discord_select.ask_user_to_select_raw')
     @pytest.mark.asyncio
-    async def test_post_once_discord_selection_success(self, mock_discord_select, mock_iso, mock_append, mock_save_meta, mock_save_images,
+    async def test_post_once_discord_selection_success(self, mock_discord_select, mock_iso, mock_append, mock_save_meta, mock_save_images, mock_save_candidates,
                                                mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                                mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
                                                mock_score_parallel, mock_quality, mock_floors, mock_entropy, mock_brightness,
@@ -630,6 +633,7 @@ class TestPostOnceIntegration:
     @patch('pixelbliss.run_once.phash.phash_hex')
     @patch('pixelbliss.imaging.variants.make_wallpaper_variants')
     @patch('pixelbliss.run_once.prompts.make_alt_text')
+    @patch('pixelbliss.run_once.storage.fs.save_candidate_images')
     @patch('pixelbliss.run_once.storage.fs.save_images')
     @patch('pixelbliss.run_once.storage.fs.save_meta')
     @patch('pixelbliss.run_once.manifest.append')
@@ -641,7 +645,7 @@ class TestPostOnceIntegration:
     @patch('pixelbliss.alerts.webhook.send_success')
     @pytest.mark.asyncio
     async def test_post_once_full_execution_with_twitter(self, mock_send_success, mock_update_tweet, mock_create_tweet, mock_set_alt,
-                                                mock_upload, mock_iso, mock_append, mock_save_meta, mock_save_images,
+                                                mock_upload, mock_iso, mock_append, mock_save_meta, mock_save_images, mock_save_candidates,
                                                 mock_alt, mock_variants_wall, mock_phash, mock_duplicate, mock_hashes,
                                                 mock_collage, mock_outdir, mock_slug, mock_today, mock_rescore,
                                                 mock_score_parallel, mock_quality, mock_floors, mock_entropy, mock_brightness,

@@ -1,7 +1,7 @@
 import os
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Any
 from PIL import Image
 
 def save_images(dir_path: str, images: Dict[str, Image.Image], base_img: Image.Image = None) -> Dict[str, str]:
@@ -31,6 +31,31 @@ def save_images(dir_path: str, images: Dict[str, Image.Image], base_img: Image.I
         img.save(path, 'PNG')
         public_paths[name] = f"/{path}"
     return public_paths
+
+def save_candidate_images(dir_path: str, candidates: List[Dict[str, Any]]) -> Dict[str, str]:
+    """
+    Save all original candidate images to a 'candidates' subfolder.
+    
+    Args:
+        dir_path: Base directory path to save images to.
+        candidates: List of candidate dictionaries containing 'image' and other metadata.
+        
+    Returns:
+        Dict[str, str]: Dictionary mapping candidate indices to their public paths.
+    """
+    candidates_dir = os.path.join(dir_path, "candidates")
+    Path(candidates_dir).mkdir(parents=True, exist_ok=True)
+    
+    candidate_paths = {}
+    
+    for i, candidate in enumerate(candidates):
+        if 'image' in candidate:
+            filename = f"candidate_{i+1:03d}.png"
+            path = os.path.join(candidates_dir, filename)
+            candidate['image'].save(path, 'PNG')
+            candidate_paths[f"candidate_{i+1:03d}"] = f"/{path}"
+    
+    return candidate_paths
 
 def save_meta(dir_path: str, meta: Dict) -> str:
     """

@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from PIL import Image
 from unittest.mock import patch, mock_open, MagicMock
-from pixelbliss.storage.fs import save_images, save_meta
+from pixelbliss.storage.fs import save_images, save_meta, save_candidate_images
 
 
 @pytest.fixture
