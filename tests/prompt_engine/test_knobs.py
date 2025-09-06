@@ -2,8 +2,7 @@
 
 import pytest
 from pixelbliss.prompt_engine.knobs import (
-    KnobSelector, BASE_KNOBS, VARIANT_KNOBS, AVOID,
-    get_legacy_categories, get_legacy_art_styles
+    KnobSelector, BASE_KNOBS, VARIANT_KNOBS, AVOID
 )
 
 
@@ -45,31 +44,6 @@ class TestKnobSelector:
         for knob_name, knob_value in knobs.items():
             assert knob_value in VARIANT_KNOBS[knob_name]
     
-    def test_select_single_variant_knob(self):
-        """Test single variant knob selection."""
-        knobs = KnobSelector.select_single_variant_knob()
-        
-        # Should return all 3 variant knob categories
-        assert len(knobs) == 3
-        expected_keys = {"tone_curve", "color_grade", "surface_fx"}
-        assert set(knobs.keys()) == expected_keys
-        
-        # Should have neutral defaults for 2 knobs and a varied value for 1
-        neutral_defaults = {
-            "tone_curve": "mid-key balanced soft S-curve",
-            "color_grade": "neutral balanced", 
-            "surface_fx": "crystal clean (no grain, crisp edges)"
-        }
-        
-        varied_count = 0
-        for knob_name, knob_value in knobs.items():
-            if knob_value != neutral_defaults[knob_name]:
-                varied_count += 1
-                # The varied value should be from the corresponding knob list
-                assert knob_value in VARIANT_KNOBS[knob_name]
-        
-        # Exactly one knob should be varied
-        assert varied_count == 1
     
     def test_get_avoid_list(self):
         """Test avoid list retrieval."""
@@ -147,30 +121,6 @@ class TestKnobData:
         assert len(AVOID) == 11
 
 
-class TestLegacyCompatibility:
-    """Test legacy compatibility functions."""
-    
-    def test_get_legacy_categories(self):
-        """Test legacy categories generation."""
-        categories = get_legacy_categories()
-        
-        assert isinstance(categories, list)
-        assert len(categories) > 0
-        # All should be strings
-        assert all(isinstance(c, str) for c in categories)
-        # Should be derived from vibe knob
-        assert len(categories) == len(BASE_KNOBS["vibe"])
-    
-    def test_get_legacy_art_styles(self):
-        """Test legacy art styles generation."""
-        styles = get_legacy_art_styles()
-        
-        assert isinstance(styles, list)
-        assert len(styles) > 0
-        # All should be strings
-        assert all(isinstance(s, str) for s in styles)
-        # Should be derived from style knob
-        assert len(styles) == len(BASE_KNOBS["style"])
 
 
 class TestKnobValues:

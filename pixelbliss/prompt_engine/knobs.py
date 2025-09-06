@@ -154,31 +154,6 @@ class KnobSelector:
             for knob_name, knob_values in VARIANT_KNOBS.items()
         }
     
-    @staticmethod
-    def select_single_variant_knob() -> Dict[str, str]:
-        """
-        Select only ONE variant knob to vary while keeping others neutral.
-        This maintains image identity while exploring mood variations.
-        
-        Returns:
-            Dict[str, str]: Dictionary with one variant knob selected, others set to neutral
-        """
-        # Choose which knob to vary
-        knob_to_vary = random.choice(list(VARIANT_KNOBS.keys()))
-        
-        # Set neutral defaults for other knobs
-        neutral_defaults = {
-            "tone_curve": "mid-key balanced soft S-curve",
-            "color_grade": "neutral balanced", 
-            "surface_fx": "crystal clean (no grain, crisp edges)"
-        }
-        
-        # Override the selected knob with a random value that's different from neutral
-        result = neutral_defaults.copy()
-        available_values = [v for v in VARIANT_KNOBS[knob_to_vary] if v != neutral_defaults[knob_to_vary]]
-        result[knob_to_vary] = random.choice(available_values)
-        
-        return result
     
     @staticmethod
     def get_avoid_list() -> List[str]:
@@ -189,38 +164,3 @@ class KnobSelector:
             List[str]: List of elements to avoid
         """
         return AVOID.copy()
-
-# ==========================
-# LEGACY COMPATIBILITY
-# ==========================
-
-def get_legacy_categories() -> List[str]:
-    """
-    Get a list of legacy-style categories for backward compatibility.
-    These are derived from the vibe knob but formatted as traditional categories.
-    
-    Returns:
-        List[str]: List of category-style strings
-    """
-    return [
-        "serene-minimal", "gentle-nature", "airy-abstract", "soothing-landscape",
-        "glowing-cosmic", "dreamlike-fantasy", "zen-meditation", "harmonious-balance",
-        "weightless-floating", "uplifting-bright", "whimsical-soft", "quiet-contemplation",
-        "warm-nostalgic", "blue-hour-calm", "golden-hour-warm", "moonlit-mystery",
-        "meditative-peaceful", "tranquil-glow"
-    ]
-
-def get_legacy_art_styles() -> List[str]:
-    """
-    Get a list of legacy-style art styles for backward compatibility.
-    These are derived from the style knob but formatted as traditional art styles.
-    
-    Returns:
-        List[str]: List of art style strings
-    """
-    return [
-        "Watercolor wash", "Gouache matte", "Oil impasto", "Pastel chalk",
-        "Sumi-e ink wash", "Airbrush smooth", "Paper cutout", "Origami-inspired",
-        "Stained glass", "Ceramic glaze", "Digital painting (soft)", "Stylized 3D",
-        "Low-poly isometric", "Vector minimal", "Delicate line art", "Bokeh abstraction"
-    ]

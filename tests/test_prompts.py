@@ -119,7 +119,7 @@ class TestPrompts:
             assert "Knobs-based base prompt generation failed after 1.00s: API Error" in call_args
 
     @patch('pixelbliss.prompts.get_provider')
-    @patch('pixelbliss.prompts.KnobSelector.select_single_variant_knob')
+    @patch('pixelbliss.prompts.KnobSelector.select_variant_knobs')
     @patch('pixelbliss.prompts.KnobSelector.get_avoid_list')
     @patch('pixelbliss.prompts.time.time')
     def test_make_variants_with_knobs_without_progress_logger(self, mock_time, mock_avoid_list, mock_variant_knobs, mock_get_provider):
@@ -129,15 +129,14 @@ class TestPrompts:
         mock_provider.make_variants_with_knobs.return_value = ["variant1", "variant2"]
         mock_get_provider.return_value = mock_provider
         mock_variant_knobs.side_effect = [
-            {"tone_curve": "high-key", "color_grade": "warm"},
-            {"tone_curve": "low-key", "color_grade": "cool"}
+            {"tone_curve": "high-key", "color_grade": "warm", "surface_fx": "matte"},
+            {"tone_curve": "low-key", "color_grade": "cool", "surface_fx": "glossy"}
         ]
         mock_avoid_list.return_value = ["harsh"]
         
         cfg = Mock()
         cfg.prompt_generation.provider = "dummy"
         cfg.prompt_generation.model = "local"
-        cfg.prompt_generation.variant_strategy = "single"
         
         with patch('pixelbliss.prompts.get_logger') as mock_get_logger:
             mock_logger = Mock()
@@ -185,7 +184,7 @@ class TestPrompts:
             assert mock_logger.info.call_count == 4
 
     @patch('pixelbliss.prompts.get_provider')
-    @patch('pixelbliss.prompts.KnobSelector.select_single_variant_knob')
+    @patch('pixelbliss.prompts.KnobSelector.select_variant_knobs')
     @patch('pixelbliss.prompts.KnobSelector.get_avoid_list')
     @patch('pixelbliss.prompts.time.time')
     def test_make_variants_with_knobs_error_handling(self, mock_time, mock_avoid_list, mock_variant_knobs, mock_get_provider):
@@ -194,12 +193,11 @@ class TestPrompts:
         mock_provider = Mock()
         mock_provider.make_variants_with_knobs.side_effect = Exception("Rate limit exceeded")
         mock_get_provider.return_value = mock_provider
-        mock_variant_knobs.return_value = {"tone_curve": "high-key"}
+        mock_variant_knobs.return_value = {"tone_curve": "high-key", "color_grade": "warm", "surface_fx": "matte"}
         mock_avoid_list.return_value = ["harsh"]
         
         cfg = Mock()
         cfg.prompt_generation.provider = "dummy"
-        cfg.prompt_generation.variant_strategy = "single"
         
         with patch('pixelbliss.prompts.get_logger') as mock_get_logger:
             mock_logger = Mock()
@@ -214,7 +212,7 @@ class TestPrompts:
 
     @pytest.mark.asyncio
     @patch('pixelbliss.prompts.get_provider')
-    @patch('pixelbliss.prompts.KnobSelector.select_single_variant_knob')
+    @patch('pixelbliss.prompts.KnobSelector.select_variant_knobs')
     @patch('pixelbliss.prompts.KnobSelector.get_avoid_list')
     @patch('pixelbliss.prompts.time.time')
     async def test_make_variants_from_base_async_with_async_provider(self, mock_time, mock_avoid_list, mock_variant_knobs, mock_get_provider):
@@ -224,8 +222,8 @@ class TestPrompts:
         mock_provider.make_variants_with_knobs_async = AsyncMock(return_value=["async_variant1", "async_variant2"])
         mock_get_provider.return_value = mock_provider
         mock_variant_knobs.side_effect = [
-            {"tone_curve": "high-key"},
-            {"tone_curve": "low-key"}
+            {"tone_curve": "high-key", "color_grade": "warm", "surface_fx": "matte"},
+            {"tone_curve": "low-key", "color_grade": "cool", "surface_fx": "glossy"}
         ]
         mock_avoid_list.return_value = ["harsh"]
         
@@ -233,7 +231,6 @@ class TestPrompts:
         cfg.prompt_generation.provider = "openai"
         cfg.prompt_generation.model = "gpt-5"
         cfg.prompt_generation.max_concurrency = 5
-        cfg.prompt_generation.variant_strategy = "single"
         
         with patch('pixelbliss.prompts.get_logger') as mock_get_logger:
             mock_logger = Mock()
@@ -248,7 +245,7 @@ class TestPrompts:
 
     @pytest.mark.asyncio
     @patch('pixelbliss.prompts.get_provider')
-    @patch('pixelbliss.prompts.KnobSelector.select_single_variant_knob')
+    @patch('pixelbliss.prompts.KnobSelector.select_variant_knobs')
     @patch('pixelbliss.prompts.KnobSelector.get_avoid_list')
     @patch('pixelbliss.prompts.time.time')
     @patch('pixelbliss.prompts.asyncio.to_thread')
@@ -263,8 +260,8 @@ class TestPrompts:
         mock_provider.make_variants_with_knobs.return_value = ["sync_variant1", "sync_variant2"]
         mock_get_provider.return_value = mock_provider
         mock_variant_knobs.side_effect = [
-            {"tone_curve": "high-key"},
-            {"tone_curve": "low-key"}
+            {"tone_curve": "high-key", "color_grade": "warm", "surface_fx": "matte"},
+            {"tone_curve": "low-key", "color_grade": "cool", "surface_fx": "glossy"}
         ]
         mock_avoid_list.return_value = ["harsh"]
         mock_to_thread.return_value = ["sync_variant1", "sync_variant2"]
@@ -272,7 +269,6 @@ class TestPrompts:
         cfg = Mock()
         cfg.prompt_generation.provider = "dummy"
         cfg.prompt_generation.model = "local"
-        cfg.prompt_generation.variant_strategy = "single"
         
         with patch('pixelbliss.prompts.get_logger') as mock_get_logger:
             mock_logger = Mock()
@@ -287,7 +283,7 @@ class TestPrompts:
 
     @pytest.mark.asyncio
     @patch('pixelbliss.prompts.get_provider')
-    @patch('pixelbliss.prompts.KnobSelector.select_single_variant_knob')
+    @patch('pixelbliss.prompts.KnobSelector.select_variant_knobs')
     @patch('pixelbliss.prompts.KnobSelector.get_avoid_list')
     @patch('pixelbliss.prompts.time.time')
     async def test_make_variants_from_base_async_error_handling(self, mock_time, mock_avoid_list, mock_variant_knobs, mock_get_provider):
@@ -296,14 +292,13 @@ class TestPrompts:
         mock_provider = Mock()
         mock_provider.make_variants_with_knobs_async = AsyncMock(side_effect=Exception("Connection timeout"))
         mock_get_provider.return_value = mock_provider
-        mock_variant_knobs.return_value = {"tone_curve": "high-key"}
+        mock_variant_knobs.return_value = {"tone_curve": "high-key", "color_grade": "warm", "surface_fx": "matte"}
         mock_avoid_list.return_value = ["harsh"]
         
         cfg = Mock()
         cfg.prompt_generation.provider = "openai"
         cfg.prompt_generation.model = "gpt-5"
         cfg.prompt_generation.max_concurrency = 3
-        cfg.prompt_generation.variant_strategy = "single"
         
         with patch('pixelbliss.prompts.get_logger') as mock_get_logger:
             mock_logger = Mock()
