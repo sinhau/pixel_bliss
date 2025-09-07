@@ -452,11 +452,42 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
                 progress_logger.finish_pipeline(success=True)
                 return 0
             else:
-                # Your pick is authoritative
-                winner = selected
-                timeout_fallback = False
-                user_rank = candidates.index(selected) + 1
-                logger.info(f"User selected candidate #{user_rank} via Discord")
+                # Discord now returns the selected index instead of the modified candidate object
+                if isinstance(selected, int):
+                    # New index-based selection
+                    selected_index = selected
+                    user_rank = selected_index + 1
+                    winner = candidates[selected_index]
+                    timeout_fallback = False
+                    logger.info(f"User selected candidate #{user_rank} via Discord (index-based)")
+                else:
+                    # Fallback for backward compatibility (should not happen with the fix)
+                    logger.warning("Received non-index selection, falling back to object matching")
+                    winner = selected
+                    timeout_fallback = False
+                    
+                    # Try to find the selected candidate in the original list
+                    try:
+                        user_rank = candidates.index(selected) + 1
+                        logger.info(f"User selected candidate #{user_rank} via Discord (object-based)")
+                    except ValueError as e:
+                        logger.error(f"Failed to find selected candidate in original list: {e}")
+                        # Fallback: try to match by provider, model, and prompt
+                        user_rank = None
+                        for i, candidate in enumerate(candidates):
+                            if (candidate.get('provider') == selected.get('provider') and
+                                candidate.get('model') == selected.get('model') and
+                                candidate.get('prompt') == selected.get('prompt')):
+                                user_rank = i + 1
+                                winner = candidate  # Use the original candidate object
+                                logger.info(f"Matched candidate #{user_rank} by metadata")
+                                break
+                        
+                        if user_rank is None:
+                            logger.error("Could not match selected candidate by metadata either")
+                            user_rank = 1
+                            winner = candidates[0]
+                            logger.warning("Falling back to first candidate as winner")
             
             progress_logger.success(f"Winner selected via human choice (rank #{user_rank})")
             

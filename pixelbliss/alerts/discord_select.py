@@ -227,7 +227,8 @@ class CandidateSelect(discord.ui.Select):
             self.manager.logger.info("User rejected all candidates via 'none' selection")
         else:
             selected_index = int(selected_value)
-            self.manager.selected_value = self.candidates[selected_index]
+            # Return the index instead of the modified candidate object to avoid identity issues
+            self.manager.selected_value = selected_index
             await interaction.response.send_message(f"✅ Using candidate #{selected_index+1}. Thanks!")
             self.manager.logger.info(f"User selected candidate #{selected_index+1}")
         
