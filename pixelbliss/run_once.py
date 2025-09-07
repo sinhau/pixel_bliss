@@ -15,7 +15,7 @@ import pytz
 
 async def generate_theme_hint_async(cfg: Config, progress_logger=None) -> str:
     """
-    Generate a theme hint using trending topics analysis asynchronously.
+    Generate a theme hint using trending topics analysis with optional Discord selection.
     
     Args:
         cfg: Configuration object containing trending themes settings.
@@ -27,12 +27,38 @@ async def generate_theme_hint_async(cfg: Config, progress_logger=None) -> str:
     if cfg.trending_themes.enabled:
         try:
             from .prompt_engine.trending_topics import TrendingTopicsProvider
+            from .alerts import discord_select
             
             provider = TrendingTopicsProvider(
                 model=cfg.trending_themes.model
             )
             
-            return await provider.get_trending_theme_async(progress_logger)
+            # Get multiple theme recommendations
+            themes = await provider.get_trending_themes_async(progress_logger)
+            
+            # If Discord is enabled, let user select from themes
+            if cfg.discord.enabled:
+                logger = get_logger('theme_generation')
+                selected_theme = await discord_select.ask_user_to_select_theme(themes, cfg, logger)
+                
+                if selected_theme == "fallback":
+                    # User chose to use fallback themes
+                    if progress_logger:
+                        progress_logger.substep("User selected fallback themes")
+                    # Fall through to fallback logic below
+                elif selected_theme:
+                    # User selected a specific theme
+                    if progress_logger:
+                        progress_logger.substep("User selected theme", selected_theme[:50] + "...")
+                    return selected_theme
+                else:
+                    # No selection received (timeout) - use first theme as fallback
+                    if progress_logger:
+                        progress_logger.substep("No theme selection received, using first theme")
+                    return themes[0].theme
+            else:
+                # Discord not enabled, use first theme
+                return themes[0].theme
                 
         except Exception as e:
             logger = get_logger('theme_generation')
@@ -367,34 +393,7 @@ async def post_once(dry_run: bool = False, logger: Optional[logging.Logger] = No
 
         # Step 2: Generate theme hint
         progress_logger.step("Generating theme hint")
-        if cfg.trending_themes.enabled:
-            theme_hint = await generate_theme_hint_async(cfg, progress_logger)
-        else:
-            # Fallback to curated theme hints
-            themes = [
-                # keep the broad, content-agnostic originals
-                "abstract", "nature", "cosmic", "geometric", "organic", "crystalline", "flow",
-
-                # concept & idea themes (not style/mood)
-                "balance", "harmony", "unity", "duality", "symmetry", "asymmetry",
-                "cycles", "growth", "renewal", "emergence", "evolution",
-                "interconnection", "networks", "continuum", "wholeness", "infinity",
-                "order and randomness", "pattern", "repetition", "rhythm",
-
-                # math & structure (conceptual domains, not aesthetics)
-                "fractal", "spirals", "tessellation", "lattice", "grid",
-                "waveforms", "fields", "orbits", "constellations", "topography", "cartography",
-
-                # natural domains (generic, non-specific)
-                "elemental", "terrestrial", "celestial", "aquatic", "mineral",
-                "botanical", "aerial", "seasonal", "weather",
-
-                # metaphor & abstract idea spaces
-                "journey", "thresholds", "liminality", "sanctuary", "play",
-                "curiosity", "wonder", "stillness", "openness", "simplicity",
-                "order and flow", "cause and effect", "microcosm and macrocosm"
-            ]
-            theme_hint = random.choice(themes)
+        theme_hint = await generate_theme_hint_async(cfg, progress_logger)
         logger.info(f"Generated theme hint: {theme_hint}")
         progress_logger.success(f"Theme hint generated", f"{theme_hint}")
 

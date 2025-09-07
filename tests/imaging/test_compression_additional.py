@@ -194,6 +194,47 @@ class TestCompressImageFileAdditional:
                 
                 os.unlink(input_tmp.name)
                 os.unlink(output_tmp.name)
+    
+    def test_compression_needed_path(self):
+        """Test the compression path when file is too large."""
+        # Create a very large image that will definitely need compression
+        image = Image.new('RGB', (3000, 3000), color='red')
+        
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as input_tmp:
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as output_tmp:
+                # Save as PNG to make it large (uncompressed)
+                image.save(input_tmp.name, 'PNG', compress_level=0)
+                
+                # Verify the file is actually large
+                input_size = os.path.getsize(input_tmp.name) / (1024 * 1024)
+                assert input_size > 5.0, f"Input file should be > 5MB, got {input_size:.2f}MB"
+                
+                # Mock compress_image_smart to return a specific result
+                with patch('pixelbliss.imaging.compression.compress_image_smart') as mock_compress:
+                    # Create a smaller image for the mock return
+                    compressed_image = Image.new('RGB', (1000, 1000), color='red')
+                    mock_compress.return_value = (compressed_image, 'JPEG', 80)
+                    
+                    # Test compression with default target size
+                    output_path, final_size, format_used, quality = compress_image_file(
+                        input_tmp.name,
+                        output_path=output_tmp.name,
+                        target_size_mb=5.0  # Twitter default
+                    )
+                    
+                    assert output_path == output_tmp.name
+                    assert format_used == 'JPEG'
+                    assert quality == 80
+                    assert os.path.exists(output_tmp.name)
+                    
+                    # Verify compress_image_smart was called with correct parameters
+                    mock_compress.assert_called_once()
+                    call_args = mock_compress.call_args
+                    # Check the second positional argument (target_size_bytes)
+                    assert call_args[0][1] == int(5.0 * 1024 * 1024)  # Target size in bytes
+                
+                os.unlink(input_tmp.name)
+                os.unlink(output_tmp.name)
 
 
 class TestPrepareForTwitterUploadAdditional:

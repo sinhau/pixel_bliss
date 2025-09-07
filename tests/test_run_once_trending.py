@@ -5,7 +5,8 @@ Tests for trending topics integration in run_once.py.
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from pixelbliss.run_once import generate_theme_hint_async
-from pixelbliss.config import Config, TrendingThemes
+from pixelbliss.config import Config, TrendingThemes, Discord
+from pixelbliss.prompt_engine.trending_topics import ThemeRecommendation
 
 
 class TestTrendingThemesIntegration:
@@ -21,23 +22,34 @@ class TestTrendingThemesIntegration:
             fallback_enabled=True,
             async_enabled=True
         )
+        self.config.discord = Discord(
+            enabled=False,  # Default to disabled for most tests
+            bot_token_env="DISCORD_BOT_TOKEN",
+            user_id_env="DISCORD_USER_ID",
+            timeout_sec=60,
+            batch_size=5
+        )
     
     
     @patch('pixelbliss.prompt_engine.trending_topics.TrendingTopicsProvider')
     @pytest.mark.asyncio
-    async def test_generate_theme_hint_async_trending_enabled(self, mock_provider_class):
-        """Test async theme generation with trending topics enabled."""
+    async def test_generate_theme_hint_async_trending_enabled_discord_disabled(self, mock_provider_class):
+        """Test async theme generation with trending topics enabled but Discord disabled."""
         # Mock provider
         mock_provider = Mock()
         mock_provider_class.return_value = mock_provider
-        mock_provider.get_trending_theme_async = AsyncMock(return_value="geometric harmony")
+        mock_themes = [
+            ThemeRecommendation(theme="geometric harmony", reasoning="Modern design trend"),
+            ThemeRecommendation(theme="nature landscapes", reasoning="Seasonal trend")
+        ]
+        mock_provider.get_trending_themes_async = AsyncMock(return_value=mock_themes)
         
         # Test
         theme = await generate_theme_hint_async(self.config)
         
-        assert theme == "geometric harmony"
+        assert theme == "geometric harmony"  # Should use first theme when Discord disabled
         mock_provider_class.assert_called_once_with(model="gpt-5")
-        mock_provider.get_trending_theme_async.assert_called_once_with(None)
+        mock_provider.get_trending_themes_async.assert_called_once_with(None)
     
     @patch('pixelbliss.prompt_engine.trending_topics.TrendingTopicsProvider')
     @pytest.mark.asyncio
@@ -46,7 +58,10 @@ class TestTrendingThemesIntegration:
         # Mock provider
         mock_provider = Mock()
         mock_provider_class.return_value = mock_provider
-        mock_provider.get_trending_theme_async = AsyncMock(return_value="minimalist zen")
+        mock_themes = [
+            ThemeRecommendation(theme="minimalist zen", reasoning="Wellness trend")
+        ]
+        mock_provider.get_trending_themes_async = AsyncMock(return_value=mock_themes)
         
         # Mock progress logger
         mock_progress_logger = Mock()
@@ -55,7 +70,7 @@ class TestTrendingThemesIntegration:
         theme = await generate_theme_hint_async(self.config, mock_progress_logger)
         
         assert theme == "minimalist zen"
-        mock_provider.get_trending_theme_async.assert_called_once_with(mock_progress_logger)
+        mock_provider.get_trending_themes_async.assert_called_once_with(mock_progress_logger)
     
     @pytest.mark.asyncio
     async def test_generate_theme_hint_async_trending_disabled(self):
@@ -90,7 +105,7 @@ class TestTrendingThemesIntegration:
         # Mock provider to raise exception
         mock_provider = Mock()
         mock_provider_class.return_value = mock_provider
-        mock_provider.get_trending_theme_async = AsyncMock(side_effect=Exception("API Error"))
+        mock_provider.get_trending_themes_async = AsyncMock(side_effect=Exception("API Error"))
         
         # Mock progress logger
         mock_progress_logger = Mock()
@@ -130,11 +145,110 @@ class TestTrendingThemesIntegration:
         # Mock provider to raise exception
         mock_provider = Mock()
         mock_provider_class.return_value = mock_provider
-        mock_provider.get_trending_theme_async = AsyncMock(side_effect=Exception("API Error"))
+        mock_provider.get_trending_themes_async = AsyncMock(side_effect=Exception("API Error"))
         
         # Test - should raise the exception
         with pytest.raises(Exception, match="API Error"):
             await generate_theme_hint_async(self.config)
+
+    @patch('pixelbliss.alerts.discord_select.ask_user_to_select_theme')
+    @patch('pixelbliss.prompt_engine.trending_topics.TrendingTopicsProvider')
+    @pytest.mark.asyncio
+    async def test_generate_theme_hint_async_with_discord_selection(self, mock_provider_class, mock_discord_select):
+        """Test async theme generation with Discord theme selection."""
+        # Enable Discord
+        self.config.discord.enabled = True
+        
+        # Mock provider
+        mock_provider = Mock()
+        mock_provider_class.return_value = mock_provider
+        mock_themes = [
+            ThemeRecommendation(theme="cyberpunk cityscapes", reasoning="Tech trend"),
+            ThemeRecommendation(theme="zen gardens", reasoning="Wellness trend"),
+            ThemeRecommendation(theme="abstract geometry", reasoning="Art trend")
+        ]
+        mock_provider.get_trending_themes_async = AsyncMock(return_value=mock_themes)
+        
+        # Mock Discord selection - user selects second theme
+        async def mock_select_theme(*args, **kwargs):
+            return "zen gardens"
+        mock_discord_select.side_effect = mock_select_theme
+        
+        # Test
+        theme = await generate_theme_hint_async(self.config)
+        
+        assert theme == "zen gardens"
+        mock_provider.get_trending_themes_async.assert_called_once_with(None)
+        mock_discord_select.assert_called_once()
+
+    @patch('pixelbliss.alerts.discord_select.ask_user_to_select_theme')
+    @patch('pixelbliss.prompt_engine.trending_topics.TrendingTopicsProvider')
+    @pytest.mark.asyncio
+    async def test_generate_theme_hint_async_discord_fallback_selection(self, mock_provider_class, mock_discord_select):
+        """Test async theme generation when user selects fallback via Discord."""
+        # Enable Discord
+        self.config.discord.enabled = True
+        
+        # Mock provider
+        mock_provider = Mock()
+        mock_provider_class.return_value = mock_provider
+        mock_themes = [
+            ThemeRecommendation(theme="theme1", reasoning="reason1"),
+            ThemeRecommendation(theme="theme2", reasoning="reason2")
+        ]
+        mock_provider.get_trending_themes_async = AsyncMock(return_value=mock_themes)
+        
+        # Mock Discord selection - user selects fallback
+        async def mock_select_fallback(*args, **kwargs):
+            return "fallback"
+        mock_discord_select.side_effect = mock_select_fallback
+        
+        # Test
+        theme = await generate_theme_hint_async(self.config)
+        
+        # Should return one of the fallback themes
+        fallback_themes = [
+            "abstract", "nature", "cosmic", "geometric", "organic", "crystalline", "flow",
+            "balance", "harmony", "unity", "duality", "symmetry", "asymmetry",
+            "cycles", "growth", "renewal", "emergence", "evolution",
+            "interconnection", "networks", "continuum", "wholeness", "infinity",
+            "order and randomness", "pattern", "repetition", "rhythm",
+            "fractal", "spirals", "tessellation", "lattice", "grid",
+            "waveforms", "fields", "orbits", "constellations", "topography", "cartography",
+            "elemental", "terrestrial", "celestial", "aquatic", "mineral",
+            "botanical", "aerial", "seasonal", "weather",
+            "journey", "thresholds", "liminality", "sanctuary", "play",
+            "curiosity", "wonder", "stillness", "openness", "simplicity",
+            "order and flow", "cause and effect", "microcosm and macrocosm"
+        ]
+        assert theme in fallback_themes
+
+    @patch('pixelbliss.alerts.discord_select.ask_user_to_select_theme')
+    @patch('pixelbliss.prompt_engine.trending_topics.TrendingTopicsProvider')
+    @pytest.mark.asyncio
+    async def test_generate_theme_hint_async_discord_timeout(self, mock_provider_class, mock_discord_select):
+        """Test async theme generation when Discord selection times out."""
+        # Enable Discord
+        self.config.discord.enabled = True
+        
+        # Mock provider
+        mock_provider = Mock()
+        mock_provider_class.return_value = mock_provider
+        mock_themes = [
+            ThemeRecommendation(theme="timeout theme", reasoning="timeout reason")
+        ]
+        mock_provider.get_trending_themes_async = AsyncMock(return_value=mock_themes)
+        
+        # Mock Discord selection - timeout (returns None)
+        async def mock_select_timeout(*args, **kwargs):
+            return None
+        mock_discord_select.side_effect = mock_select_timeout
+        
+        # Test
+        theme = await generate_theme_hint_async(self.config)
+        
+        # Should use first theme as fallback
+        assert theme == "timeout theme"
     
     def test_fallback_themes_consistency(self):
         """Test that fallback themes are consistent in async version."""
