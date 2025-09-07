@@ -47,7 +47,8 @@ class TestTrendingThemesIntegration:
         # Test
         theme = await generate_theme_hint_async(self.config)
         
-        assert theme == "geometric harmony"  # Should use first theme when Discord disabled
+        # Should use random theme when Discord disabled
+        assert theme in ["geometric harmony", "nature landscapes"]
         mock_provider_class.assert_called_once_with(model="gpt-5")
         mock_provider.get_trending_themes_async.assert_called_once_with(None)
     
@@ -235,7 +236,8 @@ class TestTrendingThemesIntegration:
         mock_provider = Mock()
         mock_provider_class.return_value = mock_provider
         mock_themes = [
-            ThemeRecommendation(theme="timeout theme", reasoning="timeout reason")
+            ThemeRecommendation(theme="timeout theme 1", reasoning="timeout reason 1"),
+            ThemeRecommendation(theme="timeout theme 2", reasoning="timeout reason 2")
         ]
         mock_provider.get_trending_themes_async = AsyncMock(return_value=mock_themes)
         
@@ -247,8 +249,8 @@ class TestTrendingThemesIntegration:
         # Test
         theme = await generate_theme_hint_async(self.config)
         
-        # Should use first theme as fallback
-        assert theme == "timeout theme"
+        # Should use random theme as fallback
+        assert theme in ["timeout theme 1", "timeout theme 2"]
     
     def test_fallback_themes_consistency(self):
         """Test that fallback themes are consistent in async version."""

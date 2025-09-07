@@ -52,13 +52,14 @@ async def generate_theme_hint_async(cfg: Config, progress_logger=None) -> str:
                         progress_logger.substep("User selected theme", selected_theme[:50] + "...")
                     return selected_theme
                 else:
-                    # No selection received (timeout) - use first theme as fallback
+                    # No selection received (timeout) - use random theme as fallback
+                    selected_theme = random.choice(themes).theme
                     if progress_logger:
-                        progress_logger.substep("No theme selection received, using first theme")
-                    return themes[0].theme
+                        progress_logger.substep("No theme selection received, using random theme", selected_theme[:50] + "...")
+                    return selected_theme
             else:
-                # Discord not enabled, use first theme
-                return themes[0].theme
+                # Discord not enabled, use random theme
+                return random.choice(themes).theme
                 
         except Exception as e:
             logger = get_logger('theme_generation')
